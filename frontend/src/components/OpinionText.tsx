@@ -18,9 +18,14 @@ interface OpinionTextResponse {
 }
 
 export default function OpinionText({ opinionId, plainText, html }: OpinionTextProps) {
-  const [text, setText] = useState<{ plain_text: string | null; html: string | null }>({
+  const [text, setText] = useState<{
+    plain_text: string | null;
+    html: string | null;
+    html_with_citations: string | null
+  }>({
     plain_text: plainText || null,
     html: html || null,
+    html_with_citations: null,
   })
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -30,7 +35,7 @@ export default function OpinionText({ opinionId, plainText, html }: OpinionTextP
   useEffect(() => {
     const fetchOpinionText = async () => {
       // Skip if we already have text
-      if (text.plain_text || text.html) {
+      if (text.plain_text || text.html || text.html_with_citations) {
         return
       }
 
@@ -49,6 +54,7 @@ export default function OpinionText({ opinionId, plainText, html }: OpinionTextP
         setText({
           plain_text: data.plain_text,
           html: data.html,
+          html_with_citations: data.html_with_citations,
         })
 
         if (data.source === 'courtlistener_api') {
@@ -62,7 +68,7 @@ export default function OpinionText({ opinionId, plainText, html }: OpinionTextP
     }
 
     fetchOpinionText()
-  }, [opinionId, text.plain_text, text.html])
+  }, [opinionId, text.plain_text, text.html, text.html_with_citations])
 
   if (loading) {
     return (
@@ -84,7 +90,7 @@ export default function OpinionText({ opinionId, plainText, html }: OpinionTextP
     )
   }
 
-  if (!text.plain_text && !text.html) {
+  if (!text.plain_text && !text.html && !text.html_with_citations) {
     return (
       <div className="bg-gray-50 border border-gray-200 rounded p-4">
         <p className="text-gray-600 italic">No text available for this opinion.</p>
@@ -106,6 +112,11 @@ export default function OpinionText({ opinionId, plainText, html }: OpinionTextP
             {text.plain_text}
           </div>
         </div>
+      ) : text.html_with_citations ? (
+        <div
+          className="prose max-w-none"
+          dangerouslySetInnerHTML={{ __html: text.html_with_citations }}
+        />
       ) : text.html ? (
         <div
           className="prose max-w-none"
