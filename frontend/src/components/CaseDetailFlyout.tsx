@@ -340,16 +340,22 @@ export const CaseDetailFlyout: React.FC<CaseDetailFlyoutProps> = ({
                             <div className="prose prose-sm max-w-none">
                               {opinion.html_with_citations ? (
                                 <div
-                                  className="text-gray-700"
-                                  style={{ fontFamily: 'Georgia, serif', lineHeight: '1.6' }}
+                                  className="opinion-text text-gray-700"
+                                  style={{ fontFamily: 'Georgia, serif', lineHeight: '1.8' }}
                                   dangerouslySetInnerHTML={{ __html: opinion.html_with_citations }}
+                                />
+                              ) : opinion.html ? (
+                                <div
+                                  className="opinion-text text-gray-700"
+                                  style={{ fontFamily: 'Georgia, serif', lineHeight: '1.8' }}
+                                  dangerouslySetInnerHTML={{ __html: opinion.html }}
                                 />
                               ) : (
                                 <div
                                   className="text-gray-700 whitespace-pre-wrap"
-                                  style={{ fontFamily: 'Georgia, serif', lineHeight: '1.6' }}
+                                  style={{ fontFamily: 'Georgia, serif', lineHeight: '1.8' }}
                                 >
-                                  {opinion.plain_text || opinion.html || 'Opinion text not available'}
+                                  {opinion.plain_text || 'Opinion text not available'}
                                 </div>
                               )}
                             </div>
