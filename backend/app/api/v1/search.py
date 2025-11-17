@@ -29,6 +29,16 @@ async def search_cases(
     Searches case names, opinion text, and docket numbers.
     Currently uses basic SQL LIKE matching (can be upgraded to full-text search later).
     """
+    # Subquery to count opinions per cluster
+    opinion_count_subq = (
+        db.query(
+            Opinion.cluster_id,
+            func.count(Opinion.id).label('opinion_count')
+        )
+        .group_by(Opinion.cluster_id)
+        .subquery()
+    )
+
     # Build base query joining all necessary tables
     query = db.query(
         OpinionCluster.id,
@@ -39,11 +49,15 @@ async def search_cases(
         OpinionCluster.precedential_status,
         OpinionCluster.slug,
         Court.short_name.label("court_name"),
-        Court.id.label("court_id")
+        Court.full_name.label("court_full_name"),
+        Court.id.label("court_id"),
+        func.coalesce(opinion_count_subq.c.opinion_count, 0).label("opinion_count")
     ).join(
         Docket, OpinionCluster.docket_id == Docket.id
     ).join(
         Court, Docket.court_id == Court.id
+    ).outerjoin(
+        opinion_count_subq, OpinionCluster.id == opinion_count_subq.c.cluster_id
     )
 
     # Add search filters
@@ -86,14 +100,16 @@ async def search_cases(
         formatted_results.append({
             "id": result.id,
             "case_name": result.case_name,
-            "case_name_short": result.case_name_short,
+            "case_name_short": result.case_name_short or result.case_name,  # Fallback to case_name if short name is null
             "date_filed": result.date_filed.isoformat() if result.date_filed else None,
             "citation_count": result.citation_count or 0,
             "precedential_status": result.precedential_status,
             "slug": result.slug,
+            "opinion_count": result.opinion_count,  # Number of opinions available
             "court": {
                 "id": result.court_id,
-                "name": result.court_name
+                "name": result.court_name,
+                "full_name": result.court_full_name
             }
         })
 
@@ -132,7 +148,7 @@ async def get_case(
         formatted_opinions.append({
             "id": opinion.id,
             "type": opinion.type,
-            "plain_text": opinion.plain_text[:500] + "..." if opinion.plain_text and len(opinion.plain_text) > 500 else opinion.plain_text,
+            "plain_text": opinion.plain_text,  # Return full text (no truncation)
             "html": opinion.html,
             "extracted_by_ocr": opinion.extracted_by_ocr
         })

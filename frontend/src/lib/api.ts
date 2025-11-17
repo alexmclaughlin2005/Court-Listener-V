@@ -8,6 +8,7 @@ const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 export interface Court {
   id: string;
   name: string;
+  full_name: string;
 }
 
 export interface CaseResult {
@@ -18,6 +19,7 @@ export interface CaseResult {
   citation_count: number;
   precedential_status: string;
   slug: string;
+  opinion_count: number;
   court: Court;
 }
 

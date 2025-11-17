@@ -100,7 +100,7 @@ export default function SearchPage() {
               </h2>
               <div className="flex flex-wrap gap-4 text-sm text-gray-600">
                 <span>
-                  <strong>Court:</strong> {result.court.name}
+                  <strong>Court:</strong> {result.court.full_name || result.court.name}
                 </span>
                 {result.date_filed && (
                   <span>
@@ -110,6 +110,11 @@ export default function SearchPage() {
                 <span>
                   <strong>Citations:</strong> {result.citation_count}
                 </span>
+                {result.opinion_count > 0 && (
+                  <span className="text-green-600">
+                    <strong>Opinions:</strong> {result.opinion_count}
+                  </span>
+                )}
                 {result.precedential_status && (
                   <span>
                     <strong>Status:</strong> {result.precedential_status}
