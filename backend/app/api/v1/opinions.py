@@ -76,13 +76,16 @@ async def get_opinion_text(opinion_id: int, db: Session = Depends(get_db)):
             html = data.get('html')
             html_with_citations = data.get('html_with_citations')
 
-            # Optionally cache the text in database for future requests
+            # Cache the text and metadata in database for future requests
             if plain_text or html:
                 opinion.plain_text = plain_text
                 opinion.html = html
                 opinion.html_with_citations = html_with_citations
+                opinion.download_url = data.get('download_url')
+                opinion.sha1 = data.get('sha1')
+                opinion.extracted_by_ocr = data.get('extracted_by_ocr')
                 db.commit()
-                logger.info(f"Cached opinion {opinion_id} text in database")
+                logger.info(f"Cached opinion {opinion_id} text and metadata in database")
 
             return OpinionTextResponse(
                 opinion_id=opinion_id,
