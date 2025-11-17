@@ -74,6 +74,55 @@ NEUTRAL_KEYWORDS = {
     'referencing': 1,
 }
 
+# Negation patterns that reverse positive keywords into negative
+# Format: (pattern, keyword_to_negate, negative_score)
+NEGATION_PATTERNS = [
+    # Strong negations
+    (r'declined\s+to\s+follow', 'followed', 8),
+    (r'refused\s+to\s+follow', 'followed', 8),
+    (r'declined\s+to\s+adopt', 'adopted', 8),
+    (r'refused\s+to\s+adopt', 'adopted', 8),
+    (r'declined\s+to\s+apply', 'applied', 7),
+    (r'refused\s+to\s+apply', 'applied', 7),
+    (r'not\s+followed', 'followed', 6),
+    (r'no\s+longer\s+followed', 'followed', 9),
+    (r'expressly\s+rejected', 'rejected', 9),
+
+    # Conditional negations
+    (r'declined\s+to\s+extend', 'extended', 5),
+    (r'refused\s+to\s+extend', 'extended', 5),
+
+    # Implicit negations through distinguishing
+    (r'distinguished\s+and\s+rejected', 'rejected', 7),
+    (r'distinguished\s+.*?\s+declined', 'declined', 6),
+]
+
+# Context modifiers - words that appear near keywords and modify meaning
+CONTEXT_MODIFIERS = {
+    # Intensifiers (increase score)
+    'expressly': 1.3,
+    'explicitly': 1.3,
+    'clearly': 1.2,
+    'unequivocally': 1.4,
+    'categorically': 1.4,
+    'firmly': 1.2,
+    'strongly': 1.2,
+    'completely': 1.3,
+
+    # Weakeners (decrease score)
+    'implicitly': 0.8,
+    'arguably': 0.7,
+    'possibly': 0.6,
+    'potentially': 0.7,
+    'might': 0.6,
+    'could': 0.7,
+    'seems': 0.7,
+    'appears': 0.8,
+}
+
+# Context window size (characters before/after keyword)
+CONTEXT_WINDOW = 50
+
 
 @dataclass
 class TreatmentSignal:
@@ -114,42 +163,105 @@ def normalize_text(text: str) -> str:
     return text.lower().strip()
 
 
+def get_context_modifier(text: str, position: int) -> float:
+    """
+    Check for context modifiers near a keyword position
+    Returns a multiplier to apply to the score (1.0 = no modification)
+    """
+    # Extract context window around the keyword
+    start = max(0, position - CONTEXT_WINDOW)
+    end = min(len(text), position + CONTEXT_WINDOW)
+    context = text[start:end].lower()
+
+    # Check for modifiers in context
+    modifier = 1.0
+    for word, mult in CONTEXT_MODIFIERS.items():
+        if word in context:
+            # Apply strongest modifier if multiple found
+            modifier = max(modifier, mult) if mult > 1.0 else min(modifier, mult)
+
+    return modifier
+
+
 def find_treatment_signals(text: str) -> List[TreatmentSignal]:
     """
-    Find all treatment keywords in text and return signals
+    Find all treatment keywords in text and return signals with context awareness
+
+    Enhancements:
+    - Detects negation patterns ("declined to follow" vs "followed")
+    - Applies context modifiers ("expressly overruled" stronger than "overruled")
+    - Prevents false positives from reversed meanings
     """
     signals = []
     normalized = normalize_text(text)
+    negated_positions = set()  # Track positions that are part of negation patterns
 
-    # Check negative keywords
-    for keyword, score in NEGATIVE_KEYWORDS.items():
-        pattern = r'\b' + re.escape(keyword) + r'\b'
+    # FIRST: Check for negation patterns (these override normal keywords)
+    for pattern, negated_keyword, neg_score in NEGATION_PATTERNS:
         for match in re.finditer(pattern, normalized):
+            # Mark all positions in this match as negated
+            for pos in range(match.start(), match.end()):
+                negated_positions.add(pos)
+
+            # Add as negative signal with context modifier
+            modifier = get_context_modifier(normalized, match.start())
+            adjusted_score = int(neg_score * modifier)
+
             signals.append(TreatmentSignal(
-                keyword=keyword,
-                score=score,
+                keyword=match.group(0),  # Full negation phrase
+                score=adjusted_score,
                 severity=Severity.NEGATIVE,
                 position=match.start()
             ))
 
-    # Check positive keywords
+    # SECOND: Check regular keywords, but skip if part of a negation pattern
+    for keyword, score in NEGATIVE_KEYWORDS.items():
+        pattern = r'\b' + re.escape(keyword) + r'\b'
+        for match in re.finditer(pattern, normalized):
+            # Skip if this position is part of a negation pattern
+            if match.start() in negated_positions:
+                continue
+
+            modifier = get_context_modifier(normalized, match.start())
+            adjusted_score = int(score * modifier)
+
+            signals.append(TreatmentSignal(
+                keyword=keyword,
+                score=adjusted_score,
+                severity=Severity.NEGATIVE,
+                position=match.start()
+            ))
+
     for keyword, score in POSITIVE_KEYWORDS.items():
         pattern = r'\b' + re.escape(keyword) + r'\b'
         for match in re.finditer(pattern, normalized):
+            # Skip if this position is part of a negation pattern
+            if match.start() in negated_positions:
+                continue
+
+            modifier = get_context_modifier(normalized, match.start())
+            adjusted_score = int(score * modifier)
+
             signals.append(TreatmentSignal(
                 keyword=keyword,
-                score=score,
+                score=adjusted_score,
                 severity=Severity.POSITIVE,
                 position=match.start()
             ))
 
-    # Check neutral keywords
     for keyword, score in NEUTRAL_KEYWORDS.items():
         pattern = r'\b' + re.escape(keyword) + r'\b'
         for match in re.finditer(pattern, normalized):
+            # Skip if this position is part of a negation pattern
+            if match.start() in negated_positions:
+                continue
+
+            modifier = get_context_modifier(normalized, match.start())
+            adjusted_score = int(score * modifier)
+
             signals.append(TreatmentSignal(
                 keyword=keyword,
-                score=score,
+                score=adjusted_score,
                 severity=Severity.NEUTRAL,
                 position=match.start()
             ))
