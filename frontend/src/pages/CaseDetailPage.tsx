@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { searchAPI, CaseDetail } from '../lib/api'
 import TreatmentSummary from '../components/TreatmentSummary'
+import OpinionText from '../components/OpinionText'
 
 export default function CaseDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -180,20 +181,11 @@ export default function CaseDetailPage() {
                   </Link>
                 </div>
 
-                {opinion.plain_text ? (
-                  <div className="prose max-w-none">
-                    <div className="bg-gray-50 rounded p-4 text-gray-700 whitespace-pre-wrap font-serif leading-relaxed">
-                      {opinion.plain_text}
-                    </div>
-                  </div>
-                ) : opinion.html ? (
-                  <div
-                    className="prose max-w-none"
-                    dangerouslySetInnerHTML={{ __html: opinion.html }}
-                  />
-                ) : (
-                  <p className="text-gray-500 italic">No text available for this opinion.</p>
-                )}
+                <OpinionText
+                  opinionId={opinion.id}
+                  plainText={opinion.plain_text}
+                  html={opinion.html}
+                />
               </div>
             ))
           )}
