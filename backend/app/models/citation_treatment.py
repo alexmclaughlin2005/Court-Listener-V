@@ -2,6 +2,7 @@
 CitationTreatment model - stores analyzed treatment status for opinions
 """
 from sqlalchemy import Column, Integer, String, Float, TIMESTAMP, ForeignKey, Index, Enum
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 from app.core.database import Base
@@ -60,6 +61,9 @@ class CitationTreatment(Base):
 
     # Confidence score (0.0 to 1.0)
     confidence = Column(Float, default=0.0)
+
+    # Evidence - stores examples and keywords that led to this classification
+    evidence = Column(JSONB, nullable=True)
 
     # Timestamps
     last_updated = Column(TIMESTAMP(timezone=True), server_default=func.now(), onupdate=func.now())
