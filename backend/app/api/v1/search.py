@@ -150,6 +150,7 @@ async def get_case(
             "type": opinion.type,
             "plain_text": opinion.plain_text,  # Return full text (no truncation)
             "html": opinion.html,
+            "html_with_citations": opinion.html_with_citations,
             "extracted_by_ocr": opinion.extracted_by_ocr
         })
 
