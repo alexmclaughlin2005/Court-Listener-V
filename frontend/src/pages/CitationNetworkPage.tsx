@@ -11,6 +11,7 @@ import ReactFlow, {
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 import { citationAPI, CitationNetwork } from '../lib/api'
+import TreatmentBadge from '../components/TreatmentBadge'
 
 export default function CitationNetworkPage() {
   const { opinionId } = useParams<{ opinionId: string }>()
@@ -254,7 +255,15 @@ export default function CitationNetworkPage() {
                     {node.court_name} • {node.date_filed ? new Date(node.date_filed).getFullYear() : 'N/A'} • {node.citation_count} citations
                   </p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex gap-2 items-center">
+                  {node.treatment && (
+                    <TreatmentBadge
+                      treatment={node.treatment}
+                      size="sm"
+                      showConfidence={false}
+                      showIcon={true}
+                    />
+                  )}
                   <span
                     className="px-2 py-1 text-xs rounded"
                     style={{
