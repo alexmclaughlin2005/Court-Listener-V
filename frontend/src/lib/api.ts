@@ -268,6 +268,33 @@ export const citationAPI = {
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     return apiClient.get(`/api/v1/citations/outbound/${opinionId}?${queryParams}`);
   },
+
+  /**
+   * Check if an opinion has citations and needs syncing
+   */
+  checkCitationStatus(opinionId: number): Promise<{
+    opinion_id: number;
+    has_citations: boolean;
+    citation_count: number;
+    needs_sync: boolean;
+  }> {
+    return apiClient.get(`/api/v1/citation-sync/check/${opinionId}`);
+  },
+
+  /**
+   * Sync citations from CourtListener API for an opinion
+   */
+  syncCitations(opinionId: number): Promise<{
+    opinion_id: number;
+    status: string;
+    existing_citations: number;
+    new_citations: number;
+    api_citations_found?: number;
+    local_matches?: number;
+    message: string;
+  }> {
+    return apiClient.post(`/api/v1/citation-sync/sync/${opinionId}`);
+  },
 };
 
 // Treatment API

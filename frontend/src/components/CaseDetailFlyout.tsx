@@ -33,6 +33,8 @@ export const CaseDetailFlyout: React.FC<CaseDetailFlyoutProps> = ({
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'opinion' | 'treatment' | 'citations'>('opinion');
+  const [syncingCitations, setSyncingCitations] = useState(false);
+  const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -43,24 +45,67 @@ export const CaseDetailFlyout: React.FC<CaseDetailFlyoutProps> = ({
   const fetchCaseData = async () => {
     setLoading(true);
     setError(null);
+    setSyncMessage(null);
 
     try {
       // Fetch all data in parallel
-      const [caseData, treatmentData, inbound, outbound] = await Promise.all([
+      const [caseData, treatmentData, inbound, outbound, citationStatus] = await Promise.all([
         searchAPI.getCaseDetail(clusterId).catch(() => null),
         treatmentAPI.getTreatment(opinionId).catch(() => null),
         citationAPI.getInbound(opinionId, { depth: 1, limit: 20 }).catch(() => ({ citations: [] })),
-        citationAPI.getOutbound(opinionId, { depth: 1, limit: 20 }).catch(() => ({ citations: [] }))
+        citationAPI.getOutbound(opinionId, { depth: 1, limit: 20 }).catch(() => ({ citations: [] })),
+        citationAPI.checkCitationStatus(opinionId).catch(() => null)
       ]);
 
       setCaseDetail(caseData);
       setTreatment(treatmentData);
       setInboundCitations(inbound.citations || []);
       setOutboundCitations(outbound.citations || []);
+
+      // If no citations exist, try to sync from API
+      if (citationStatus?.needs_sync && !citationStatus.has_citations) {
+        syncCitationsFromAPI();
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load case details');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const syncCitationsFromAPI = async () => {
+    setSyncingCitations(true);
+    setSyncMessage('Fetching citations from CourtListener API...');
+
+    try {
+      const result = await citationAPI.syncCitations(opinionId);
+
+      if (result.status === 'success' && result.new_citations > 0) {
+        setSyncMessage(`✓ Imported ${result.new_citations} new citations`);
+
+        // Refetch citations to show the newly imported data
+        const [inbound, outbound] = await Promise.all([
+          citationAPI.getInbound(opinionId, { depth: 1, limit: 20 }).catch(() => ({ citations: [] })),
+          citationAPI.getOutbound(opinionId, { depth: 1, limit: 20 }).catch(() => ({ citations: [] }))
+        ]);
+
+        setInboundCitations(inbound.citations || []);
+        setOutboundCitations(outbound.citations || []);
+
+        // Clear message after 5 seconds
+        setTimeout(() => setSyncMessage(null), 5000);
+      } else if (result.status === 'no_local_matches') {
+        setSyncMessage('Citations found in API but cited cases not in local database');
+        setTimeout(() => setSyncMessage(null), 5000);
+      } else {
+        setSyncMessage(result.message);
+        setTimeout(() => setSyncMessage(null), 5000);
+      }
+    } catch (err) {
+      console.error('Error syncing citations:', err);
+      setSyncMessage(null);
+    } finally {
+      setSyncingCitations(false);
     }
   };
 
@@ -327,6 +372,24 @@ export const CaseDetailFlyout: React.FC<CaseDetailFlyoutProps> = ({
                 {/* Citations Tab */}
                 {activeTab === 'citations' && (
                   <div className="space-y-6">
+                    {/* Sync Status Message */}
+                    {(syncingCitations || syncMessage) && (
+                      <div className={`rounded-lg p-3 text-sm ${
+                        syncingCitations
+                          ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                          : syncMessage?.startsWith('✓')
+                          ? 'bg-green-50 text-green-700 border border-green-200'
+                          : 'bg-gray-50 text-gray-700 border border-gray-200'
+                      }`}>
+                        <div className="flex items-center gap-2">
+                          {syncingCitations && (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                          )}
+                          <span>{syncMessage}</span>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Inbound Citations */}
                     <div>
                       <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
