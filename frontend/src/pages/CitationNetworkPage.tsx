@@ -168,6 +168,13 @@ export default function CitationNetworkPage() {
         return nodeData.node_type === 'citing' ? '#10b981' : '#f59e0b'
       }
 
+      // Check if we have valid data
+      if (!data.nodes || data.nodes.length === 0) {
+        setError('No citation network data available for this opinion')
+        setLoading(false)
+        return
+      }
+
       // Convert API data to React Flow format
       const flowNodes: Node[] = data.nodes.map((node, index) => {
         // Calculate position in a circular layout
@@ -182,7 +189,7 @@ export default function CitationNetworkPage() {
           id: node.opinion_id.toString(),
           type: 'custom',
           data: {
-            label: node.case_name_short || node.case_name,
+            label: node.case_name_short || node.case_name || 'Unknown Case',
             ...node,
           },
           position: { x, y },
@@ -196,7 +203,7 @@ export default function CitationNetworkPage() {
         }
       })
 
-      const flowEdges: Edge[] = data.edges.map((edge, index) => ({
+      const flowEdges: Edge[] = (data.edges || []).map((edge, index) => ({
         id: `edge-${index}`,
         source: edge.source.toString(),
         target: edge.target.toString(),
