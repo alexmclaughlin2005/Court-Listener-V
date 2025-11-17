@@ -10,8 +10,7 @@ import ReactFlow, {
   MarkerType,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
-import { citationAPI, CitationNetwork, Severity } from '../lib/api'
-import TreatmentBadge from '../components/TreatmentBadge'
+import { citationAPI, CitationNetwork } from '../lib/api'
 
 export default function CitationNetworkPage() {
   const { opinionId } = useParams<{ opinionId: string }>()
