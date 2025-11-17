@@ -10,7 +10,8 @@ import ReactFlow, {
   MarkerType,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
-import { citationAPI, CitationNetwork } from '../lib/api'
+import { citationAPI, CitationNetwork, Severity } from '../lib/api'
+import TreatmentBadge from '../components/TreatmentBadge'
 
 export default function CitationNetworkPage() {
   const { opinionId } = useParams<{ opinionId: string }>()
@@ -36,6 +37,31 @@ export default function CitationNetworkPage() {
       })
       setNetworkData(data)
 
+      // Helper function to get node color based on treatment
+      const getNodeColor = (nodeData: typeof data.nodes[0]): string => {
+        // Center node is always blue
+        if (nodeData.node_type === 'center') {
+          return '#3b82f6' // blue
+        }
+
+        // If node has treatment data, color based on severity
+        if (nodeData.treatment) {
+          switch (nodeData.treatment.severity) {
+            case 'NEGATIVE':
+              return '#ef4444' // red
+            case 'POSITIVE':
+              return '#10b981' // green
+            case 'NEUTRAL':
+              return '#6b7280' // gray
+            default:
+              return nodeData.node_type === 'citing' ? '#10b981' : '#f59e0b'
+          }
+        }
+
+        // Default colors based on node type
+        return nodeData.node_type === 'citing' ? '#10b981' : '#f59e0b'
+      }
+
       // Convert API data to React Flow format
       const flowNodes: Node[] = data.nodes.map((node, index) => {
         // Calculate position in a circular layout
@@ -43,6 +69,8 @@ export default function CitationNetworkPage() {
         const radius = node.node_type === 'center' ? 0 : 300
         const x = radius * Math.cos(angle)
         const y = radius * Math.sin(angle)
+
+        const nodeColor = getNodeColor(node)
 
         return {
           id: node.opinion_id.toString(),
@@ -52,17 +80,14 @@ export default function CitationNetworkPage() {
           },
           position: { x, y },
           style: {
-            background: node.node_type === 'center'
-              ? '#3b82f6'
-              : node.node_type === 'citing'
-              ? '#10b981'
-              : '#f59e0b',
+            background: nodeColor,
             color: 'white',
-            border: '2px solid #1e293b',
+            border: node.treatment ? '3px solid #1e293b' : '2px solid #1e293b',
             borderRadius: '8px',
             padding: '10px',
             fontSize: '12px',
             fontWeight: 'bold',
+            boxShadow: node.treatment ? '0 4px 6px -1px rgba(0, 0, 0, 0.3)' : undefined,
           },
         }
       })

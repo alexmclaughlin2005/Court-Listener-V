@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import { searchAPI, CaseDetail } from '../lib/api'
+import TreatmentSummary from '../components/TreatmentSummary'
 
 export default function CaseDetailPage() {
   const { id } = useParams<{ id: string }>()
@@ -139,6 +140,15 @@ export default function CaseDetailPage() {
             </div>
           </div>
         </div>
+
+        {/* Treatment Summary */}
+        {caseData.opinions.length > 0 && (
+          <TreatmentSummary
+            opinionId={caseData.opinions[0].id}
+            showHistory={true}
+            className="mb-6"
+          />
+        )}
 
         {/* Opinions */}
         <div className="space-y-6">
