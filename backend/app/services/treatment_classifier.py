@@ -106,6 +106,7 @@ class TreatmentSummary:
     neutral_count: int
     total_parentheticals: int
     significant_treatments: List[Dict]  # List of notable treatment instances
+    evidence: Optional[Dict] = None  # Evidence showing why this treatment was assigned
 
 
 def normalize_text(text: str) -> str:
@@ -312,7 +313,36 @@ def analyze_opinion_treatment(
 
     # Collect significant treatments (negative and high-confidence positive)
     significant = []
+    negative_examples = []
+    positive_examples = []
+    total_negative_score = 0
+    total_positive_score = 0
+
     for result, described_id, describing_id in results:
+        # Calculate total scores
+        for signal in result.signals:
+            if signal.severity == Severity.NEGATIVE:
+                total_negative_score += signal.score
+            elif signal.severity == Severity.POSITIVE:
+                total_positive_score += signal.score
+
+        # Collect examples for evidence
+        if result.severity == Severity.NEGATIVE:
+            negative_examples.append({
+                'text': result.text[:300],  # Truncate to 300 chars
+                'keywords': [s.keyword for s in result.signals if s.severity == Severity.NEGATIVE],
+                'score': sum(s.score for s in result.signals if s.severity == Severity.NEGATIVE),
+                'describing_opinion_id': describing_id
+            })
+        elif result.severity == Severity.POSITIVE:
+            positive_examples.append({
+                'text': result.text[:300],
+                'keywords': [s.keyword for s in result.signals if s.severity == Severity.POSITIVE],
+                'score': sum(s.score for s in result.signals if s.severity == Severity.POSITIVE),
+                'describing_opinion_id': describing_id
+            })
+
+        # Collect significant treatments for compatibility
         if result.severity == Severity.NEGATIVE or (result.severity == Severity.POSITIVE and result.confidence > 0.7):
             significant.append({
                 'type': result.treatment_type.value,
@@ -324,7 +354,20 @@ def analyze_opinion_treatment(
                 'keywords': [s.keyword for s in result.signals[:3]]  # Top 3 keywords
             })
 
-    # Sort by confidence
+    # Sort examples by score and take top 5
+    negative_examples.sort(key=lambda x: x['score'], reverse=True)
+    positive_examples.sort(key=lambda x: x['score'], reverse=True)
+
+    # Build evidence object
+    evidence = {
+        'summary': f"{treatment_type.value} based on {negative_count} negative, {positive_count} positive, {neutral_count} neutral parentheticals",
+        'negative_examples': negative_examples[:5],  # Top 5 negative
+        'positive_examples': positive_examples[:5],  # Top 5 positive
+        'total_negative_score': total_negative_score,
+        'total_positive_score': total_positive_score
+    }
+
+    # Sort significant treatments by confidence
     significant.sort(key=lambda x: x['confidence'], reverse=True)
 
     return TreatmentSummary(
@@ -336,5 +379,6 @@ def analyze_opinion_treatment(
         positive_count=positive_count,
         neutral_count=neutral_count,
         total_parentheticals=len(parentheticals),
-        significant_treatments=significant[:10]  # Top 10 most significant
+        significant_treatments=significant[:10],  # Top 10 most significant
+        evidence=evidence
     )

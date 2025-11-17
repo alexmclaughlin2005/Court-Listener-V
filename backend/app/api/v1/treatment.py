@@ -99,6 +99,7 @@ async def get_treatment(
         cached.positive_count = analysis.positive_count
         cached.neutral_count = analysis.neutral_count
         cached.confidence = analysis.confidence
+        cached.evidence = analysis.evidence
         cached.last_updated = datetime.utcnow()
     else:
         # Create new cache entry
@@ -109,7 +110,8 @@ async def get_treatment(
             negative_count=analysis.negative_count,
             positive_count=analysis.positive_count,
             neutral_count=analysis.neutral_count,
-            confidence=analysis.confidence
+            confidence=analysis.confidence,
+            evidence=analysis.evidence
         )
         db.add(cached)
 
@@ -126,6 +128,7 @@ async def get_treatment(
             "neutral": analysis.neutral_count,
             "total": analysis.total_parentheticals
         },
+        "evidence": analysis.evidence,
         "significant_treatments": analysis.significant_treatments,
         "from_cache": False
     }

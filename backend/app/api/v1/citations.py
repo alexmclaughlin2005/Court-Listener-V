@@ -232,7 +232,7 @@ async def get_inbound_citations(
 @router.get("/network/{opinion_id}")
 async def get_citation_network(
     opinion_id: int,
-    depth: int = Query(1, ge=1, le=2),
+    depth: int = Query(1, ge=1, le=5, description="Citation depth (1-5 levels)"),
     max_nodes: int = Query(50, le=200),
     db: Session = Depends(get_db)
 ):
@@ -240,6 +240,7 @@ async def get_citation_network(
     Get citation network for visualization
 
     Returns nodes (cases) and edges (citations) for graph visualization
+    Supports up to 5 levels of depth to show deeper citation chains
     """
     # Verify opinion exists
     opinion = db.query(Opinion).filter(Opinion.id == opinion_id).first()
@@ -253,52 +254,87 @@ async def get_citation_network(
 
     nodes = {opinion_id: center_details}
     edges = []
+    visited_outbound = {opinion_id}
+    visited_inbound = {opinion_id}
 
-    # Get outbound citations (this opinion cites...)
-    outbound = db.query(
-        OpinionsCited.cited_opinion_id,
-        OpinionsCited.depth
-    ).filter(
-        OpinionsCited.citing_opinion_id == opinion_id
-    ).limit(max_nodes // 2).all()
+    # Recursively get outbound citations (this opinion cites...) up to depth levels
+    outbound_queue = [(opinion_id, 0)]
+    node_limit_half = max_nodes // 2
 
-    for citation in outbound:
-        cited_id = citation.cited_opinion_id
-        if cited_id not in nodes:
-            details = get_opinion_details(cited_id, db)
-            if details:
-                details["node_type"] = "cited"
-                nodes[cited_id] = details
+    while outbound_queue and len(nodes) < max_nodes:
+        current_id, current_depth = outbound_queue.pop(0)
 
-        edges.append({
-            "source": opinion_id,
-            "target": cited_id,
-            "type": "outbound",
-            "depth": citation.depth
-        })
+        if current_depth >= depth:
+            continue
 
-    # Get inbound citations (opinions that cite this one)
-    inbound = db.query(
-        OpinionsCited.citing_opinion_id,
-        OpinionsCited.depth
-    ).filter(
-        OpinionsCited.cited_opinion_id == opinion_id
-    ).limit(max_nodes // 2).all()
+        # Get citations for current opinion
+        outbound = db.query(
+            OpinionsCited.cited_opinion_id,
+            OpinionsCited.depth
+        ).filter(
+            OpinionsCited.citing_opinion_id == current_id
+        ).limit(node_limit_half).all()
 
-    for citation in inbound:
-        citing_id = citation.citing_opinion_id
-        if citing_id not in nodes:
-            details = get_opinion_details(citing_id, db)
-            if details:
-                details["node_type"] = "citing"
-                nodes[citing_id] = details
+        for citation in outbound:
+            cited_id = citation.cited_opinion_id
 
-        edges.append({
-            "source": citing_id,
-            "target": opinion_id,
-            "type": "inbound",
-            "depth": citation.depth
-        })
+            if cited_id not in nodes and len(nodes) < max_nodes:
+                details = get_opinion_details(cited_id, db)
+                if details:
+                    details["node_type"] = "cited"
+                    nodes[cited_id] = details
+
+            # Add edge
+            edges.append({
+                "source": current_id,
+                "target": cited_id,
+                "type": "outbound",
+                "depth": current_depth + 1
+            })
+
+            # Add to queue for next level if not visited and within depth
+            if cited_id not in visited_outbound and current_depth + 1 < depth:
+                visited_outbound.add(cited_id)
+                outbound_queue.append((cited_id, current_depth + 1))
+
+    # Recursively get inbound citations (opinions that cite this one) up to depth levels
+    inbound_queue = [(opinion_id, 0)]
+
+    while inbound_queue and len(nodes) < max_nodes:
+        current_id, current_depth = inbound_queue.pop(0)
+
+        if current_depth >= depth:
+            continue
+
+        # Get opinions that cite current opinion
+        inbound = db.query(
+            OpinionsCited.citing_opinion_id,
+            OpinionsCited.depth
+        ).filter(
+            OpinionsCited.cited_opinion_id == current_id
+        ).limit(node_limit_half).all()
+
+        for citation in inbound:
+            citing_id = citation.citing_opinion_id
+
+            if citing_id not in nodes and len(nodes) < max_nodes:
+                details = get_opinion_details(citing_id, db)
+                if details:
+                    details["node_type"] = "citing"
+                    nodes[citing_id] = details
+
+            # Add edge
+            edges.append({
+                "source": citing_id,
+                "target": current_id,
+                "type": "inbound",
+                "depth": current_depth + 1
+            })
+
+            # Add to queue for next level if not visited and within depth
+            if citing_id not in visited_inbound and current_depth + 1 < depth:
+                visited_inbound.add(citing_id)
+                inbound_queue.append((citing_id, current_depth + 1))
 
     # Mark center node
     nodes[opinion_id]["node_type"] = "center"

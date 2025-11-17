@@ -15,7 +15,7 @@ import { citationAPI, CitationNetwork } from '../lib/api'
 import TreatmentBadge from '../components/TreatmentBadge'
 import CaseDetailFlyout from '../components/CaseDetailFlyout'
 
-// Custom node component with treatment badge
+// Custom node component with treatment badge and depth indicator
 const CustomNode = memo(({ data }: NodeProps) => {
   const TREATMENT_ICONS: Record<string, string> = {
     OVERRULED: '⛔',
@@ -44,6 +44,9 @@ const CustomNode = memo(({ data }: NodeProps) => {
     ? `${data.treatment.type} (${data.treatment.severity})`
     : ''
 
+  // Get depth for display
+  const nodeDepth = data.depth || 0
+
   return (
     <div
       style={{
@@ -56,7 +59,7 @@ const CustomNode = memo(({ data }: NodeProps) => {
         cursor: 'pointer',
         transition: 'transform 0.2s',
       }}
-      title={`${fullCaseName}${treatmentLabel ? '\n' + treatmentLabel : ''}`}
+      title={`${fullCaseName}${treatmentLabel ? '\n' + treatmentLabel : ''}${nodeDepth > 0 ? '\nDepth: ' + nodeDepth : ''}`}
     >
       {data.treatment && (
         <div
@@ -79,6 +82,31 @@ const CustomNode = memo(({ data }: NodeProps) => {
           title={treatmentLabel}
         >
           {TREATMENT_ICONS[data.treatment.type] || '❓'}
+        </div>
+      )}
+      {nodeDepth > 0 && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '-8px',
+            left: '-8px',
+            fontSize: '10px',
+            fontWeight: 'bold',
+            background: '#1e293b',
+            color: 'white',
+            borderRadius: '50%',
+            width: '24px',
+            height: '24px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+            border: '2px solid white',
+            zIndex: 10,
+          }}
+          title={`Depth: ${nodeDepth} level${nodeDepth > 1 ? 's' : ''} from center`}
+        >
+          {nodeDepth}
         </div>
       )}
       <div style={{
@@ -196,32 +224,92 @@ export default function CitationNetworkPage() {
         return
       }
 
-      // Convert API data to React Flow format
-      const flowNodes: Node[] = data.nodes.map((node, index) => {
-        // Calculate position in a circular layout
-        const angle = (index / data.nodes.length) * 2 * Math.PI
-        const radius = node.node_type === 'center' ? 0 : 300
-        const x = radius * Math.cos(angle)
-        const y = radius * Math.sin(angle)
+      // Calculate depth for each node from edges
+      const nodeDepths = new Map<number, number>()
+      nodeDepths.set(data.center_opinion_id, 0)
 
-        const nodeColor = getNodeColor(node)
-
-        return {
-          id: node.opinion_id.toString(),
-          type: 'custom',
-          data: {
-            label: node.case_name_short || node.case_name || 'Unknown Case',
-            ...node,
-          },
-          position: { x, y },
-          style: {
-            background: nodeColor,
-            color: 'white',
-            border: node.treatment ? '3px solid #1e293b' : '2px solid #1e293b',
-            borderRadius: '8px',
-            boxShadow: node.treatment ? '0 4px 6px -1px rgba(0, 0, 0, 0.3)' : undefined,
-          },
+      // Build adjacency map from edges
+      const adjacencyMap = new Map<number, Array<{ node: number; depth: number }>>()
+      data.edges.forEach(edge => {
+        if (edge.source === data.center_opinion_id) {
+          // Outbound: target is at depth 1+
+          if (!adjacencyMap.has(edge.source)) adjacencyMap.set(edge.source, [])
+          adjacencyMap.get(edge.source)!.push({ node: edge.target, depth: edge.depth || 1 })
+        } else if (edge.target === data.center_opinion_id) {
+          // Inbound: source is at depth 1+
+          if (!adjacencyMap.has(edge.target)) adjacencyMap.set(edge.target, [])
+          adjacencyMap.get(edge.target)!.push({ node: edge.source, depth: edge.depth || 1 })
         }
+      })
+
+      // BFS to assign depths
+      const queue = [data.center_opinion_id]
+      const visited = new Set([data.center_opinion_id])
+
+      while (queue.length > 0) {
+        const current = queue.shift()!
+        const neighbors = adjacencyMap.get(current) || []
+
+        neighbors.forEach(({ node, depth }) => {
+          if (!visited.has(node)) {
+            visited.add(node)
+            nodeDepths.set(node, depth)
+            queue.push(node)
+          }
+        })
+      }
+
+      // Group nodes by depth for layout
+      const nodesByDepth = new Map<number, typeof data.nodes>()
+      data.nodes.forEach(node => {
+        const depth = nodeDepths.get(node.opinion_id) || 0
+        if (!nodesByDepth.has(depth)) nodesByDepth.set(depth, [])
+        nodesByDepth.get(depth)!.push(node)
+      })
+
+      // Convert API data to React Flow format with depth-based layout
+      const flowNodes: Node[] = []
+
+      nodesByDepth.forEach((nodesAtDepth, depthLevel) => {
+        const nodesCount = nodesAtDepth.length
+        const layerRadius = depthLevel === 0 ? 0 : 200 + (depthLevel * 250)
+
+        nodesAtDepth.forEach((node, indexInDepth) => {
+          // Calculate position based on depth level
+          let x = 0, y = 0
+
+          if (depthLevel === 0) {
+            // Center node at origin
+            x = 0
+            y = 0
+          } else {
+            // Arrange in circular layout at this depth
+            const angle = (indexInDepth / nodesCount) * 2 * Math.PI - Math.PI / 2
+            x = layerRadius * Math.cos(angle)
+            y = layerRadius * Math.sin(angle)
+          }
+
+          const nodeColor = getNodeColor(node)
+          const nodeDepth = nodeDepths.get(node.opinion_id) || 0
+
+          flowNodes.push({
+            id: node.opinion_id.toString(),
+            type: 'custom',
+            data: {
+              label: node.case_name_short || node.case_name || 'Unknown Case',
+              ...node,
+              depth: nodeDepth,
+            },
+            position: { x, y },
+            style: {
+              background: nodeColor,
+              color: 'white',
+              border: node.treatment ? '3px solid #1e293b' : '2px solid #1e293b',
+              borderRadius: '8px',
+              boxShadow: node.treatment ? '0 4px 6px -1px rgba(0, 0, 0, 0.3)' : undefined,
+            },
+          })
+        })
       })
 
       const flowEdges: Edge[] = (data.edges || []).map((edge, index) => ({
@@ -230,6 +318,9 @@ export default function CitationNetworkPage() {
         target: edge.target.toString(),
         type: 'smoothstep',
         animated: true,
+        label: edge.depth > 1 ? `D${edge.depth}` : undefined,
+        labelStyle: { fontSize: 10, fill: '#6b7280' },
+        labelBgStyle: { fill: 'white' },
         style: {
           stroke: edge.type === 'inbound' ? '#10b981' : '#f59e0b',
           strokeWidth: 2,
@@ -311,6 +402,9 @@ export default function CitationNetworkPage() {
               >
                 <option value="1">1 Level</option>
                 <option value="2">2 Levels</option>
+                <option value="3">3 Levels</option>
+                <option value="4">4 Levels</option>
+                <option value="5">5 Levels</option>
               </select>
             </div>
 
