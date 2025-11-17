@@ -1,0 +1,8 @@
+2025-11-17 10:45:48,524 - INFO - 🔌 Connecting to database...
+2025-11-17 10:45:49,037 - INFO - ✅ Connected successfully
+2025-11-17 10:45:49,037 - INFO - Importing citations from search_opinionscited-2025-10-31.csv
+2025-11-17 10:45:53,973 - WARNING - ⚠️  Batch insert failed, skipping 10000 rows: insert or update on table "search_opinionscited" violates foreign key constraint "search_opinionscit
+2025-11-17 10:45:58,444 - WARNING - ⚠️  Batch insert failed, skipping 10000 rows: insert or update on table "search_opinionscited" violates foreign key constraint "search_opinionscit
+2025-11-17 10:46:00,987 - WARNING - ⚠️  Batch insert failed, skipping 10000 rows: insert or update on table "search_opinionscited" violates foreign key constraint "search_opinionscit
+2025-11-17 10:46:02,802 - WARNING - ⚠️  Batch insert failed, skipping 10000 rows: insert or update on table "search_opinionscited" violates foreign key constraint "search_opinionscit
+2025-11-17 10:46:04,439 - WARNING - ⚠️  Batch insert failed, skipping 10000 rows: insert or update on table "search_opinionscited" violates foreign key constraint "search_opinionscit

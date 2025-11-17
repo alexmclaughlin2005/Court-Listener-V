@@ -190,40 +190,34 @@ def do_import(
                     try:
                         db.execute(text("""
                             INSERT INTO search_opinioncluster
-                            (id, docket_id, date_created, date_modified, judges, date_filed,
-                             date_filed_is_approximate, slug, case_name_short, case_name,
-                             case_name_full, source, procedural_history, attorneys,
-                             nature_of_suit, posture, syllabus, summary, disposition,
-                             citation_count, precedential_status, blocked)
-                            VALUES (:id, :docket_id, :date_created, :date_modified, :judges, :date_filed,
-                                    :date_filed_is_approximate, :slug, :case_name_short, :case_name,
-                                    :case_name_full, :source, :procedural_history, :attorneys,
-                                    :nature_of_suit, :posture, :syllabus, :summary, :disposition,
-                                    :citation_count, :precedential_status, :blocked)
+                            (id, docket_id, date_created, date_modified, slug, case_name,
+                             case_name_short, case_name_full, date_filed, date_filed_is_approximate,
+                             citation_count, precedential_status, scdb_id, scdb_decision_direction,
+                             scdb_votes_majority, scdb_votes_minority, judges, source)
+                            VALUES (:id, :docket_id, :date_created, :date_modified, :slug, :case_name,
+                                    :case_name_short, :case_name_full, :date_filed, :date_filed_is_approximate,
+                                    :citation_count, :precedential_status, :scdb_id, :scdb_decision_direction,
+                                    :scdb_votes_majority, :scdb_votes_minority, :judges, :source)
                             ON CONFLICT (id) DO NOTHING
                         """), {
                             'id': parse_value(row['id'], 'id'),
                             'docket_id': parse_value(row['docket_id'], 'docket_id'),
                             'date_created': parse_value(row.get('date_created'), 'date_created'),
                             'date_modified': parse_value(row.get('date_modified'), 'date_modified'),
-                            'judges': parse_value(row.get('judges'), 'judges'),
+                            'slug': parse_value(row.get('slug'), 'slug'),
+                            'case_name': parse_value(row.get('case_name'), 'case_name'),
+                            'case_name_short': parse_value(row.get('case_name_short'), 'case_name_short'),
+                            'case_name_full': parse_value(row.get('case_name_full'), 'case_name_full'),
                             'date_filed': parse_value(row.get('date_filed'), 'date_filed'),
                             'date_filed_is_approximate': parse_value(row.get('date_filed_is_approximate', 'f'), 'date_filed_is_approximate'),
-                            'slug': parse_value(row.get('slug'), 'slug'),
-                            'case_name_short': parse_value(row.get('case_name_short'), 'case_name_short'),
-                            'case_name': parse_value(row.get('case_name'), 'case_name'),
-                            'case_name_full': parse_value(row.get('case_name_full'), 'case_name_full'),
-                            'source': parse_value(row.get('source', '0'), 'source'),
-                            'procedural_history': parse_value(row.get('procedural_history'), 'procedural_history'),
-                            'attorneys': parse_value(row.get('attorneys'), 'attorneys'),
-                            'nature_of_suit': parse_value(row.get('nature_of_suit'), 'nature_of_suit'),
-                            'posture': parse_value(row.get('posture'), 'posture'),
-                            'syllabus': parse_value(row.get('syllabus'), 'syllabus'),
-                            'summary': parse_value(row.get('summary'), 'summary'),
-                            'disposition': parse_value(row.get('disposition'), 'disposition'),
                             'citation_count': parse_value(row.get('citation_count', '0'), 'citation_count'),
-                            'precedential_status': parse_value(row.get('precedential_status', 'Unknown'), 'precedential_status'),
-                            'blocked': parse_value(row.get('blocked', 'f'), 'blocked'),
+                            'precedential_status': parse_value(row.get('precedential_status', 'Published'), 'precedential_status'),
+                            'scdb_id': parse_value(row.get('scdb_id'), 'scdb_id'),
+                            'scdb_decision_direction': parse_value(row.get('scdb_decision_direction'), 'scdb_decision_direction'),
+                            'scdb_votes_majority': parse_value(row.get('scdb_votes_majority'), 'scdb_votes_majority'),
+                            'scdb_votes_minority': parse_value(row.get('scdb_votes_minority'), 'scdb_votes_minority'),
+                            'judges': parse_value(row.get('judges'), 'judges'),
+                            'source': parse_value(row.get('source', '0'), 'source'),
                         })
                         count += 1
 
