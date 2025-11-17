@@ -3,6 +3,7 @@ Citation API endpoints - citation network queries
 """
 from fastapi import APIRouter, Query, Depends
 from typing import List
+from datetime import date
 from sqlalchemy.orm import Session
 from app.core.database import get_db
 
