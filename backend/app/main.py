@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
 from app.api.v1.router import api_router
 from app.core.database import engine, Base
-from app.models import Court, Docket, OpinionCluster, Opinion, OpinionsCited
+from app.models import Court, Docket, OpinionCluster, Opinion, OpinionsCited, Parenthetical, CitationTreatment
 
 app = FastAPI(
     title="CourtListener Case Law API",
@@ -52,7 +52,7 @@ async def initialize_database():
         return {
             "status": "success",
             "message": "Database tables created successfully",
-            "tables": ["courts", "dockets", "opinion_clusters", "opinions", "opinions_cited"]
+            "tables": ["courts", "dockets", "opinion_clusters", "opinions", "opinions_cited", "parentheticals", "citation_treatment"]
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Database initialization failed: {str(e)}")

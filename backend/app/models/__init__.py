@@ -6,6 +6,8 @@ from app.models.docket import Docket
 from app.models.opinion_cluster import OpinionCluster
 from app.models.opinion import Opinion
 from app.models.opinions_cited import OpinionsCited
+from app.models.parenthetical import Parenthetical
+from app.models.citation_treatment import CitationTreatment, TreatmentType, Severity
 
 __all__ = [
     "Court",
@@ -13,5 +15,9 @@ __all__ = [
     "OpinionCluster",
     "Opinion",
     "OpinionsCited",
+    "Parenthetical",
+    "CitationTreatment",
+    "TreatmentType",
+    "Severity",
 ]
 
