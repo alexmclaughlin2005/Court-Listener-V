@@ -35,7 +35,7 @@ async def import_sample_data(
     """
     try:
         # Check if data already exists
-        existing_count = db.execute(text("SELECT COUNT(*) FROM courts")).scalar()
+        existing_count = db.execute(text("SELECT COUNT(*) FROM search_court")).scalar()
         if existing_count > 0:
             return {
                 "status": "warning",
@@ -89,11 +89,11 @@ async def start_import(
 async def get_import_status(db: Session = Depends(get_db)):
     """Get current data import status and row counts"""
     try:
-        courts_count = db.execute(text("SELECT COUNT(*) FROM courts")).scalar()
-        dockets_count = db.execute(text("SELECT COUNT(*) FROM dockets")).scalar()
-        clusters_count = db.execute(text("SELECT COUNT(*) FROM opinion_clusters")).scalar()
-        opinions_count = db.execute(text("SELECT COUNT(*) FROM opinions")).scalar()
-        citations_count = db.execute(text("SELECT COUNT(*) FROM opinions_cited")).scalar()
+        courts_count = db.execute(text("SELECT COUNT(*) FROM search_court")).scalar()
+        dockets_count = db.execute(text("SELECT COUNT(*) FROM search_docket")).scalar()
+        clusters_count = db.execute(text("SELECT COUNT(*) FROM search_opinioncluster")).scalar()
+        opinions_count = db.execute(text("SELECT COUNT(*) FROM search_opinion")).scalar()
+        citations_count = db.execute(text("SELECT COUNT(*) FROM search_opinionscited")).scalar()
 
         total = courts_count + dockets_count + clusters_count + opinions_count + citations_count
 
@@ -132,11 +132,11 @@ async def clear_all_data(
 
     try:
         # Delete in reverse order (respect foreign keys)
-        db.execute(text("DELETE FROM opinions_cited"))
-        db.execute(text("DELETE FROM opinions"))
-        db.execute(text("DELETE FROM opinion_clusters"))
-        db.execute(text("DELETE FROM dockets"))
-        db.execute(text("DELETE FROM courts"))
+        db.execute(text("DELETE FROM search_opinionscited"))
+        db.execute(text("DELETE FROM search_opinion"))
+        db.execute(text("DELETE FROM search_opinioncluster"))
+        db.execute(text("DELETE FROM search_docket"))
+        db.execute(text("DELETE FROM search_court"))
         db.commit()
 
         return {
