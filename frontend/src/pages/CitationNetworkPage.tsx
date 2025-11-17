@@ -13,6 +13,7 @@ import ReactFlow, {
 import 'reactflow/dist/style.css'
 import { citationAPI, CitationNetwork } from '../lib/api'
 import TreatmentBadge from '../components/TreatmentBadge'
+import CaseDetailFlyout from '../components/CaseDetailFlyout'
 
 // Custom node component with treatment badge
 const CustomNode = memo(({ data }: NodeProps) => {
@@ -105,8 +106,29 @@ export default function CitationNetworkPage() {
   const [depth, setDepth] = useState(1)
   const [maxNodes, setMaxNodes] = useState(50)
 
+  // Flyout state
+  const [selectedCase, setSelectedCase] = useState<{ clusterId: number; opinionId: number } | null>(null)
+  const [isFlyoutOpen, setIsFlyoutOpen] = useState(false)
+
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
+
+  // Handle node click
+  const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
+    const nodeData = node.data
+    setSelectedCase({
+      clusterId: nodeData.cluster_id,
+      opinionId: nodeData.opinion_id
+    })
+    setIsFlyoutOpen(true)
+  }, [])
+
+  // Handle flyout close
+  const handleCloseFlyout = useCallback(() => {
+    setIsFlyoutOpen(false)
+    // Keep selectedCase for a moment to allow smooth closing animation
+    setTimeout(() => setSelectedCase(null), 300)
+  }, [])
 
   const fetchNetwork = useCallback(async () => {
     if (!opinionId) return
@@ -315,6 +337,7 @@ export default function CitationNetworkPage() {
             nodeTypes={nodeTypes}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
+            onNodeClick={onNodeClick}
             fitView
             attributionPosition="bottom-right"
           >
@@ -330,7 +353,14 @@ export default function CitationNetworkPage() {
             {networkData.nodes.map((node) => (
               <div
                 key={node.opinion_id}
-                className="flex justify-between items-center p-3 border rounded hover:bg-gray-50"
+                className="flex justify-between items-center p-3 border rounded hover:bg-gray-50 cursor-pointer transition"
+                onClick={() => {
+                  setSelectedCase({
+                    clusterId: node.cluster_id,
+                    opinionId: node.opinion_id
+                  })
+                  setIsFlyoutOpen(true)
+                }}
               >
                 <div className="flex-1">
                   <p className="font-medium text-gray-900">{node.case_name_short || node.case_name}</p>
@@ -360,18 +390,35 @@ export default function CitationNetworkPage() {
                   >
                     {node.node_type}
                   </span>
-                  <Link
-                    to={`/case/${node.cluster_id}`}
-                    className="text-blue-600 hover:text-blue-700 text-sm"
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      setSelectedCase({
+                        clusterId: node.cluster_id,
+                        opinionId: node.opinion_id
+                      })
+                      setIsFlyoutOpen(true)
+                    }}
+                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
                   >
-                    View Case →
-                  </Link>
+                    Quick View
+                  </button>
                 </div>
               </div>
             ))}
           </div>
         </div>
       </div>
+
+      {/* Case Detail Flyout */}
+      {selectedCase && (
+        <CaseDetailFlyout
+          clusterId={selectedCase.clusterId}
+          opinionId={selectedCase.opinionId}
+          isOpen={isFlyoutOpen}
+          onClose={handleCloseFlyout}
+        />
+      )}
     </div>
   )
 }
