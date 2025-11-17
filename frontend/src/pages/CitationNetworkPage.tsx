@@ -106,6 +106,11 @@ export default function CitationNetworkPage() {
   const [depth, setDepth] = useState(1)
   const [maxNodes, setMaxNodes] = useState(50)
 
+  // Deep analysis state
+  const [deepAnalysis, setDeepAnalysis] = useState<any>(null)
+  const [showDeepAnalysis, setShowDeepAnalysis] = useState(false)
+  const [loadingAnalysis, setLoadingAnalysis] = useState(false)
+
   // Flyout state
   const [selectedCase, setSelectedCase] = useState<{ clusterId: number; opinionId: number } | null>(null)
   const [isFlyoutOpen, setIsFlyoutOpen] = useState(false)
@@ -129,6 +134,22 @@ export default function CitationNetworkPage() {
     // Keep selectedCase for a moment to allow smooth closing animation
     setTimeout(() => setSelectedCase(null), 300)
   }, [])
+
+  // Fetch deep analysis
+  const fetchDeepAnalysis = useCallback(async () => {
+    if (!opinionId) return
+
+    setLoadingAnalysis(true)
+    try {
+      const analysis = await citationAPI.getDeepAnalysis(parseInt(opinionId), { depth: 4 })
+      setDeepAnalysis(analysis)
+      setShowDeepAnalysis(true)
+    } catch (err) {
+      console.error('Failed to fetch deep analysis:', err)
+    } finally {
+      setLoadingAnalysis(false)
+    }
+  }, [opinionId])
 
   const fetchNetwork = useCallback(async () => {
     if (!opinionId) return
@@ -309,15 +330,53 @@ export default function CitationNetworkPage() {
               </select>
             </div>
 
-            <div className="flex items-end">
+            <div className="flex items-end gap-3">
               <button
                 onClick={fetchNetwork}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
               >
                 Refresh
               </button>
+              <button
+                onClick={fetchDeepAnalysis}
+                disabled={loadingAnalysis}
+                className={`px-4 py-2 rounded-lg transition font-medium ${
+                  loadingAnalysis
+                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                    : 'bg-purple-600 text-white hover:bg-purple-700'
+                }`}
+              >
+                {loadingAnalysis ? 'Analyzing...' : 'Risk Analysis'}
+              </button>
             </div>
           </div>
+
+          {/* Risk Analysis Badge */}
+          {deepAnalysis && (
+            <div className="mt-4 pt-4 border-t">
+              <div className="flex items-center gap-3">
+                <span className="text-sm font-medium text-gray-700">Citation Risk:</span>
+                <div className={`px-3 py-1 rounded-full text-sm font-semibold ${
+                  deepAnalysis.risk_assessment.level === 'HIGH'
+                    ? 'bg-red-100 text-red-800'
+                    : deepAnalysis.risk_assessment.level === 'MEDIUM'
+                    ? 'bg-yellow-100 text-yellow-800'
+                    : 'bg-green-100 text-green-800'
+                }`}>
+                  {deepAnalysis.risk_assessment.level} RISK ({deepAnalysis.risk_assessment.score}/100)
+                </div>
+                <span className="text-sm text-gray-600">
+                  {deepAnalysis.negative_treatment_count} of {deepAnalysis.total_cases_analyzed} cases have negative treatment
+                </span>
+                <button
+                  onClick={() => setShowDeepAnalysis(!showDeepAnalysis)}
+                  className="ml-auto text-sm text-blue-600 hover:text-blue-700 font-medium"
+                >
+                  {showDeepAnalysis ? 'Hide Details' : 'Show Details'}
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Legend */}
           <div className="mt-4 pt-4 border-t flex flex-wrap gap-4 text-sm">
@@ -352,6 +411,113 @@ export default function CitationNetworkPage() {
             <Background />
           </ReactFlow>
         </div>
+
+        {/* Deep Analysis Details */}
+        {showDeepAnalysis && deepAnalysis && (
+          <div className="mt-6 bg-white rounded-lg shadow p-6">
+            <h2 className="text-2xl font-bold text-gray-900 mb-4">Deep Citation Risk Analysis</h2>
+
+            {/* Summary Stats */}
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">Cases Analyzed</p>
+                <p className="text-2xl font-bold text-gray-900">{deepAnalysis.total_cases_analyzed}</p>
+              </div>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-sm text-gray-600 mb-1">Depth</p>
+                <p className="text-2xl font-bold text-gray-900">{deepAnalysis.analysis_depth} Levels</p>
+              </div>
+              <div className="bg-red-50 p-4 rounded-lg">
+                <p className="text-sm text-red-600 mb-1">Negative Treatments</p>
+                <p className="text-2xl font-bold text-red-900">{deepAnalysis.negative_treatment_count}</p>
+              </div>
+              <div className={`p-4 rounded-lg ${
+                deepAnalysis.risk_assessment.level === 'HIGH' ? 'bg-red-50' :
+                deepAnalysis.risk_assessment.level === 'MEDIUM' ? 'bg-yellow-50' :
+                'bg-green-50'
+              }`}>
+                <p className={`text-sm mb-1 ${
+                  deepAnalysis.risk_assessment.level === 'HIGH' ? 'text-red-600' :
+                  deepAnalysis.risk_assessment.level === 'MEDIUM' ? 'text-yellow-600' :
+                  'text-green-600'
+                }`}>Risk Score</p>
+                <p className={`text-2xl font-bold ${
+                  deepAnalysis.risk_assessment.level === 'HIGH' ? 'text-red-900' :
+                  deepAnalysis.risk_assessment.level === 'MEDIUM' ? 'text-yellow-900' :
+                  'text-green-900'
+                }`}>{deepAnalysis.risk_assessment.score}/100</p>
+              </div>
+            </div>
+
+            {/* Treatment Warnings */}
+            {deepAnalysis.treatment_warnings.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Treatment Warnings</h3>
+                <div className="space-y-2">
+                  {deepAnalysis.treatment_warnings.map((warning: any, index: number) => (
+                    <div key={index} className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-lg">
+                      <span className="text-2xl">⚠️</span>
+                      <div className="flex-1">
+                        <p className="font-medium text-gray-900">{warning.case_name}</p>
+                        <p className="text-sm text-gray-600 mt-1">
+                          <span className="font-semibold text-red-700">{warning.treatment_type}</span>
+                          {' • '}Depth: {warning.depth}
+                          {' • '}Confidence: {Math.round((warning.confidence || 0) * 100)}%
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Warnings by Type */}
+            {Object.keys(deepAnalysis.warnings_by_type).length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Warnings by Treatment Type</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {Object.entries(deepAnalysis.warnings_by_type).map(([type, warnings]: [string, any]) => (
+                    <div key={type} className="bg-gray-50 p-4 rounded-lg border">
+                      <p className="font-semibold text-gray-900 mb-2">{type}</p>
+                      <p className="text-2xl font-bold text-red-600">{warnings.length}</p>
+                      <p className="text-sm text-gray-600 mt-1">cases affected</p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Problematic Citation Chains */}
+            {deepAnalysis.problematic_citation_chains.length > 0 && (
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Problematic Citation Chains</h3>
+                <div className="space-y-3">
+                  {deepAnalysis.problematic_citation_chains.slice(0, 5).map((chain: any, index: number) => (
+                    <div key={index} className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+                      <div className="flex items-center gap-2 mb-2">
+                        <span className="text-sm font-semibold text-gray-700">Chain Length:</span>
+                        <span className="text-sm text-gray-600">{chain.chain_length} cases</span>
+                      </div>
+                      <div className="text-sm text-gray-700">
+                        <p className="mb-1">
+                          <span className="font-medium">Starts at:</span> {chain.start_case?.case_name_short || chain.start_case?.case_name || 'Unknown'}
+                        </p>
+                        <p>
+                          <span className="font-medium text-red-700">Problem:</span> {chain.problem_case?.case_name_short || chain.problem_case?.case_name || 'Unknown'}
+                          {chain.problem_case?.treatment && (
+                            <span className="ml-2 px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-semibold">
+                              {chain.problem_case.treatment.type}
+                            </span>
+                          )}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         {/* Node Details */}
         <div className="mt-6 bg-white rounded-lg shadow p-6">

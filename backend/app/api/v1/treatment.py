@@ -53,6 +53,7 @@ async def get_treatment(
                     "positive": cached.positive_count,
                     "neutral": cached.neutral_count
                 },
+                "evidence": cached.evidence if cached.evidence else None,
                 "last_updated": cached.last_updated.isoformat() if cached.last_updated else None,
                 "from_cache": True
             }

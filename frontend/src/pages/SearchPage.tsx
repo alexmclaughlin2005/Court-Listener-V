@@ -1,6 +1,62 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { searchAPI, CaseResult } from '../lib/api'
+import { searchAPI, CaseResult, citationAPI } from '../lib/api'
+
+// Component to display risk score for a case
+function RiskScoreBadge({ clusterId }: { clusterId: number }) {
+  const [riskData, setRiskData] = useState<any>(null)
+  const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    const fetchRisk = async () => {
+      setLoading(true)
+      try {
+        // First get the case details to find the opinion ID
+        const caseDetail = await searchAPI.getCaseDetail(clusterId)
+
+        if (caseDetail.opinions && caseDetail.opinions.length > 0) {
+          const opinionId = caseDetail.opinions[0].id
+          const analysis = await citationAPI.getDeepAnalysis(opinionId, { depth: 2 })
+          setRiskData(analysis.risk_assessment)
+        }
+      } catch (err) {
+        console.error('Failed to fetch risk score:', err)
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    fetchRisk()
+  }, [clusterId])
+
+  if (loading) {
+    return <span className="text-xs text-gray-500">Analyzing...</span>
+  }
+
+  if (!riskData) {
+    return null
+  }
+
+  const levelColors = {
+    'HIGH': 'bg-red-100 text-red-800 border-red-200',
+    'MEDIUM': 'bg-yellow-100 text-yellow-800 border-yellow-200',
+    'LOW': 'bg-green-100 text-green-800 border-green-200'
+  }
+
+  const levelEmoji = {
+    'HIGH': '🔴',
+    'MEDIUM': '🟡',
+    'LOW': '🟢'
+  }
+
+  return (
+    <div className={`inline-flex items-center gap-1.5 px-2 py-1 rounded border text-xs font-semibold ${levelColors[riskData.level as keyof typeof levelColors]}`}>
+      <span>{levelEmoji[riskData.level as keyof typeof levelEmoji]}</span>
+      <span>Citation Risk: {riskData.level}</span>
+      <span className="font-mono">({riskData.score}/100)</span>
+    </div>
+  )
+}
 
 export default function SearchPage() {
   const [query, setQuery] = useState('')
@@ -9,6 +65,7 @@ export default function SearchPage() {
   const [error, setError] = useState<string | null>(null)
   const [totalCount, setTotalCount] = useState(0)
   const [hasSearched, setHasSearched] = useState(false)
+  const [showRiskScores, setShowRiskScores] = useState(false)
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -74,10 +131,22 @@ export default function SearchPage() {
         </form>
 
         {hasSearched && !loading && (
-          <div className="mb-4">
+          <div className="mb-4 flex items-center justify-between">
             <p className="text-gray-600">
               {totalCount === 0 ? 'No results found' : `Found ${totalCount} cases`}
             </p>
+            {results.length > 0 && (
+              <button
+                onClick={() => setShowRiskScores(!showRiskScores)}
+                className={`px-4 py-2 rounded-lg font-medium transition ${
+                  showRiskScores
+                    ? 'bg-purple-600 text-white hover:bg-purple-700'
+                    : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                }`}
+              >
+                {showRiskScores ? 'Hide Risk Scores' : 'Show Risk Scores'}
+              </button>
+            )}
           </div>
         )}
 
@@ -90,38 +159,44 @@ export default function SearchPage() {
 
         <div className="space-y-4">
           {results.map((result) => (
-            <Link
-              key={result.id}
-              to={`/case/${result.id}`}
-              className="block bg-white p-6 rounded-lg shadow hover:shadow-md transition"
-            >
-              <h2 className="text-xl font-bold text-blue-600 hover:text-blue-700 mb-2">
-                {result.case_name}
-              </h2>
-              <div className="flex flex-wrap gap-4 text-sm text-gray-600">
-                <span>
-                  <strong>Court:</strong> {result.court.full_name || result.court.name}
-                </span>
-                {result.date_filed && (
+            <div key={result.id} className="bg-white p-6 rounded-lg shadow hover:shadow-md transition">
+              <Link
+                to={`/case/${result.id}`}
+                className="block"
+              >
+                <div className="flex items-start justify-between gap-4 mb-2">
+                  <h2 className="text-xl font-bold text-blue-600 hover:text-blue-700 flex-1">
+                    {result.case_name}
+                  </h2>
+                  {showRiskScores && result.opinion_count > 0 && (
+                    <RiskScoreBadge clusterId={result.id} />
+                  )}
+                </div>
+                <div className="flex flex-wrap gap-4 text-sm text-gray-600">
                   <span>
-                    <strong>Filed:</strong> {new Date(result.date_filed).toLocaleDateString()}
+                    <strong>Court:</strong> {result.court.full_name || result.court.name}
                   </span>
-                )}
-                <span>
-                  <strong>Citations:</strong> {result.citation_count}
-                </span>
-                {result.opinion_count > 0 && (
-                  <span className="text-green-600">
-                    <strong>Opinions:</strong> {result.opinion_count}
-                  </span>
-                )}
-                {result.precedential_status && (
+                  {result.date_filed && (
+                    <span>
+                      <strong>Filed:</strong> {new Date(result.date_filed).toLocaleDateString()}
+                    </span>
+                  )}
                   <span>
-                    <strong>Status:</strong> {result.precedential_status}
+                    <strong>Citations:</strong> {result.citation_count}
                   </span>
-                )}
-              </div>
-            </Link>
+                  {result.opinion_count > 0 && (
+                    <span className="text-green-600">
+                      <strong>Opinions:</strong> {result.opinion_count}
+                    </span>
+                  )}
+                  {result.precedential_status && (
+                    <span>
+                      <strong>Status:</strong> {result.precedential_status}
+                    </span>
+                  )}
+                </div>
+              </Link>
+            </div>
           ))}
         </div>
 
