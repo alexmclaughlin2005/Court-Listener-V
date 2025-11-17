@@ -9,12 +9,14 @@ from pydantic import BaseModel
 from typing import Optional
 import httpx
 import logging
+import os
 
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# CourtListener API configuration
-COURTLISTENER_API_BASE = "https://www.courtlistener.com/api/rest/v3"
+# CourtListener API configuration (v4 is the latest)
+COURTLISTENER_API_BASE = "https://www.courtlistener.com/api/rest/v4"
+COURTLISTENER_API_TOKEN = os.getenv("COURTLISTENER_API_TOKEN", "")
 
 class OpinionTextResponse(BaseModel):
     opinion_id: int
@@ -49,10 +51,21 @@ async def get_opinion_text(opinion_id: int, db: Session = Depends(get_db)):
     # Otherwise, fetch from CourtListener API
     logger.info(f"Fetching opinion {opinion_id} text from CourtListener API")
 
+    if not COURTLISTENER_API_TOKEN:
+        raise HTTPException(
+            status_code=503,
+            detail="CourtListener API token not configured. Set COURTLISTENER_API_TOKEN environment variable."
+        )
+
     try:
+        headers = {
+            "Authorization": f"Token {COURTLISTENER_API_TOKEN}"
+        }
+
         async with httpx.AsyncClient(timeout=30.0) as client:
             response = await client.get(
                 f"{COURTLISTENER_API_BASE}/opinions/{opinion_id}/",
+                headers=headers,
                 follow_redirects=True
             )
             response.raise_for_status()
