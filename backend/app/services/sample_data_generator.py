@@ -111,7 +111,7 @@ class SampleDataGenerator:
             court = Court(**court_data)
             courts.append(court)
 
-        self.db.bulk_save_objects(courts)
+        self.db.add_all(courts)
         self.db.commit()
 
         # Refresh to get database IDs
@@ -145,7 +145,7 @@ class SampleDataGenerator:
             )
             dockets.append(docket)
 
-        self.db.bulk_save_objects(dockets)
+        self.db.add_all(dockets)
         self.db.commit()
 
         for docket in dockets:
@@ -179,7 +179,7 @@ class SampleDataGenerator:
             )
             clusters.append(cluster)
 
-        self.db.bulk_save_objects(clusters)
+        self.db.add_all(clusters)
         self.db.commit()
 
         for cluster in clusters:
@@ -219,7 +219,7 @@ class SampleDataGenerator:
             if len(opinions) >= count:
                 break
 
-        self.db.bulk_save_objects(opinions)
+        self.db.add_all(opinions)
         self.db.commit()
 
         for opinion in opinions:
@@ -260,7 +260,7 @@ class SampleDataGenerator:
             )
             citations.append(citation)
 
-        self.db.bulk_save_objects(citations)
+        self.db.add_all(citations)
         self.db.commit()
 
         logger.info(f"Created {len(citations)} citations")
