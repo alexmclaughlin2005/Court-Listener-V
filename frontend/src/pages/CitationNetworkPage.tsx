@@ -29,35 +29,65 @@ const CustomNode = memo(({ data }: NodeProps) => {
     UNKNOWN: '❓',
   }
 
+  // Truncate long case names
+  const truncateText = (text: string, maxLength: number = 40) => {
+    if (text.length <= maxLength) return text
+    return text.substring(0, maxLength) + '...'
+  }
+
+  const fullCaseName = data.label || ''
+  const displayName = truncateText(fullCaseName)
+
+  // Get treatment label for tooltip
+  const treatmentLabel = data.treatment
+    ? `${data.treatment.type} (${data.treatment.severity})`
+    : ''
+
   return (
-    <div style={{
-      padding: '10px',
-      borderRadius: '8px',
-      minWidth: '150px',
-      textAlign: 'center',
-      position: 'relative'
-    }}>
+    <div
+      style={{
+        padding: '12px',
+        borderRadius: '8px',
+        minWidth: '180px',
+        maxWidth: '220px',
+        textAlign: 'center',
+        position: 'relative',
+        cursor: 'pointer',
+        transition: 'transform 0.2s',
+      }}
+      title={`${fullCaseName}${treatmentLabel ? '\n' + treatmentLabel : ''}`}
+    >
       {data.treatment && (
-        <div style={{
-          position: 'absolute',
-          top: '-8px',
-          right: '-8px',
-          fontSize: '20px',
-          background: 'white',
-          borderRadius: '50%',
-          width: '32px',
-          height: '32px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-          border: '2px solid #1e293b',
-        }}>
+        <div
+          style={{
+            position: 'absolute',
+            top: '-12px',
+            right: '-12px',
+            fontSize: '24px',
+            background: 'white',
+            borderRadius: '50%',
+            width: '40px',
+            height: '40px',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: '0 4px 6px rgba(0,0,0,0.4)',
+            border: '3px solid #1e293b',
+            zIndex: 10,
+          }}
+          title={treatmentLabel}
+        >
           {TREATMENT_ICONS[data.treatment.type] || '❓'}
         </div>
       )}
-      <div style={{ fontSize: '12px', fontWeight: 'bold', color: 'white' }}>
-        {data.label}
+      <div style={{
+        fontSize: '11px',
+        fontWeight: '600',
+        color: 'white',
+        lineHeight: '1.3',
+        wordWrap: 'break-word',
+      }}>
+        {displayName}
       </div>
     </div>
   )
