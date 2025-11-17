@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models import Opinion, OpinionsCited
 import os
-import requests
+import httpx
 import logging
 
 router = APIRouter()
@@ -65,21 +65,22 @@ async def sync_opinion_citations(
     # Fetch from CourtListener API
     try:
         url = f"{CL_API_BASE}/opinions/{opinion_id}/"
-        response = requests.get(url, headers=get_api_headers(), timeout=10)
+        async with httpx.AsyncClient() as client:
+            response = await client.get(url, headers=get_api_headers(), timeout=10.0)
 
-        if response.status_code == 404:
-            return {
-                "opinion_id": opinion_id,
-                "status": "not_found_in_api",
-                "existing_citations": 0,
-                "new_citations": 0,
-                "message": "Opinion not found in CourtListener API"
-            }
+            if response.status_code == 404:
+                return {
+                    "opinion_id": opinion_id,
+                    "status": "not_found_in_api",
+                    "existing_citations": 0,
+                    "new_citations": 0,
+                    "message": "Opinion not found in CourtListener API"
+                }
 
-        response.raise_for_status()
-        opinion_data = response.json()
+            response.raise_for_status()
+            opinion_data = response.json()
 
-    except requests.exceptions.RequestException as e:
+    except httpx.HTTPError as e:
         logger.error(f"API error for opinion {opinion_id}: {e}")
         raise HTTPException(
             status_code=502,
