@@ -171,7 +171,7 @@ class SampleDataGenerator:
                 slug=f"{docket.case_name_short.lower().replace(' ', '-')}-{random.randint(1000, 9999)}",
                 case_name=docket.case_name,
                 case_name_short=docket.case_name_short,
-                source="C",  # Court website
+                source=1,  # Source code: 1 = Court website
                 precedential_status="Published",
                 citation_count=random.randint(0, 50),
                 date_created=docket.date_created,
