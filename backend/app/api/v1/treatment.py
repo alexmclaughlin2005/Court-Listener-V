@@ -53,6 +53,8 @@ async def get_treatment(
             except Exception:
                 evidence = None
 
+            total = cached.negative_count + cached.positive_count + cached.neutral_count
+
             return {
                 "opinion_id": opinion_id,
                 "treatment_type": treatment_type_val,
@@ -61,7 +63,8 @@ async def get_treatment(
                 "summary": {
                     "negative": cached.negative_count,
                     "positive": cached.positive_count,
-                    "neutral": cached.neutral_count
+                    "neutral": cached.neutral_count,
+                    "total": total
                 },
                 "evidence": evidence,
                 "last_updated": cached.last_updated.isoformat() if cached.last_updated else None,
@@ -82,7 +85,8 @@ async def get_treatment(
             "summary": {
                 "negative": 0,
                 "positive": 0,
-                "neutral": 0
+                "neutral": 0,
+                "total": 0
             },
             "message": "No parentheticals found for this opinion",
             "from_cache": False
