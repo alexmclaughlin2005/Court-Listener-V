@@ -66,6 +66,62 @@ export interface CaseDetail {
   opinions: Opinion[];
 }
 
+export type TreatmentType =
+  | 'OVERRULED' | 'REVERSED' | 'VACATED' | 'ABROGATED' | 'SUPERSEDED'
+  | 'AFFIRMED' | 'FOLLOWED'
+  | 'DISTINGUISHED' | 'QUESTIONED' | 'CRITICIZED' | 'CITED'
+  | 'UNKNOWN';
+
+export type Severity = 'NEGATIVE' | 'POSITIVE' | 'NEUTRAL' | 'UNKNOWN';
+
+export interface Treatment {
+  type: TreatmentType;
+  severity: Severity;
+  confidence: number;
+}
+
+export interface TreatmentSummary {
+  opinion_id: number;
+  treatment_type: TreatmentType;
+  severity: Severity;
+  confidence: number;
+  summary: {
+    negative: number;
+    positive: number;
+    neutral: number;
+    total?: number;
+  };
+  significant_treatments?: SignificantTreatment[];
+  from_cache?: boolean;
+  last_updated?: string;
+}
+
+export interface SignificantTreatment {
+  type: TreatmentType;
+  severity: Severity;
+  confidence: number;
+  described_opinion_id: number;
+  describing_opinion_id: number;
+  excerpt: string;
+  keywords: string[];
+}
+
+export interface TreatmentHistory {
+  opinion_id: number;
+  total_treatments: number;
+  history: Array<{
+    parenthetical_id: number;
+    treatment_type: TreatmentType;
+    severity: Severity;
+    confidence: number;
+    text: string;
+    describing_opinion_id: number;
+    describing_case_name: string;
+    date_filed: string | null;
+    keywords: string[];
+  }>;
+}
+
 export interface CitationNode {
   opinion_id: number;
   cluster_id: number;
@@ -75,6 +131,7 @@ export interface CitationNode {
   citation_count: number;
   court_id: string | null;
   court_name: string | null;
+  treatment?: Treatment | null;
   node_type?: 'center' | 'cited' | 'citing';
 }
 
@@ -210,6 +267,61 @@ export const citationAPI = {
     if (params?.depth) queryParams.append('depth', params.depth.toString());
     if (params?.limit) queryParams.append('limit', params.limit.toString());
     return apiClient.get(`/api/v1/citations/outbound/${opinionId}?${queryParams}`);
+  },
+};
+
+// Treatment API
+export const treatmentAPI = {
+  /**
+   * Get treatment analysis for an opinion
+   */
+  getTreatment(opinionId: number, useCache: boolean = true): Promise<TreatmentSummary> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('use_cache', useCache.toString());
+    return apiClient.get<TreatmentSummary>(`/api/v1/treatment/${opinionId}?${queryParams}`);
+  },
+
+  /**
+   * Get treatment history for an opinion
+   */
+  getHistory(opinionId: number, limit: number = 50): Promise<TreatmentHistory> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('limit', limit.toString());
+    return apiClient.get<TreatmentHistory>(`/api/v1/treatment/${opinionId}/history?${queryParams}`);
+  },
+
+  /**
+   * Force fresh treatment analysis (bypass cache)
+   */
+  analyzeTreatment(opinionId: number): Promise<TreatmentSummary> {
+    return apiClient.post<TreatmentSummary>(`/api/v1/treatment/analyze/${opinionId}`);
+  },
+
+  /**
+   * Batch analyze multiple opinions
+   */
+  batchAnalyze(opinionIds: number[], useCache: boolean = true): Promise<{
+    total: number;
+    results: TreatmentSummary[];
+  }> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('use_cache', useCache.toString());
+    return apiClient.post(`/api/v1/treatment/batch?${queryParams}`, opinionIds);
+  },
+
+  /**
+   * Get treatment statistics
+   */
+  getStats(): Promise<{
+    total_analyzed: number;
+    total_parentheticals: number;
+    by_severity: {
+      negative: number;
+      positive: number;
+      neutral: number;
+    };
+  }> {
+    return apiClient.get('/api/v1/treatment/stats/summary');
   },
 };
 
