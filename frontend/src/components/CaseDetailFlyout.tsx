@@ -36,13 +36,7 @@ export const CaseDetailFlyout: React.FC<CaseDetailFlyoutProps> = ({
   const [syncingCitations, setSyncingCitations] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isOpen) {
-      fetchCaseData();
-    }
-  }, [isOpen, clusterId, opinionId]);
-
-  const fetchCaseData = async () => {
+  const fetchCaseData = React.useCallback(async () => {
     setLoading(true);
     setError(null);
     setSyncMessage(null);
@@ -71,7 +65,13 @@ export const CaseDetailFlyout: React.FC<CaseDetailFlyoutProps> = ({
     } finally {
       setLoading(false);
     }
-  };
+  }, [clusterId, opinionId]);
+
+  useEffect(() => {
+    if (isOpen) {
+      fetchCaseData();
+    }
+  }, [isOpen, fetchCaseData]);
 
   const syncCitationsFromAPI = async () => {
     setSyncingCitations(true);
