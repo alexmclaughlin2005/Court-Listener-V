@@ -12,8 +12,8 @@ import logging
 router = APIRouter()
 logger = logging.getLogger(__name__)
 
-# CourtListener API configuration
-CL_API_BASE = "https://www.courtlistener.com/api/rest/v3"
+# CourtListener API configuration (v4 is the latest)
+CL_API_BASE = "https://www.courtlistener.com/api/rest/v4"
 CL_API_TOKEN = os.environ.get('COURTLISTENER_API_TOKEN', '')
 
 
@@ -66,7 +66,7 @@ async def sync_opinion_citations(
     try:
         url = f"{CL_API_BASE}/opinions/{opinion_id}/"
         async with httpx.AsyncClient() as client:
-            response = await client.get(url, headers=get_api_headers(), timeout=10.0)
+            response = await client.get(url, headers=get_api_headers(), timeout=30.0)
 
             if response.status_code == 404:
                 return {
