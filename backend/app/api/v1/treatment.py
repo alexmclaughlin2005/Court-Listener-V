@@ -43,10 +43,14 @@ async def get_treatment(
         ).first()
 
         if cached:
+            # Handle enum values - they might be stored as strings or enum objects
+            treatment_type_val = cached.treatment_type.value if hasattr(cached.treatment_type, 'value') else str(cached.treatment_type)
+            severity_val = cached.severity.value if hasattr(cached.severity, 'value') else str(cached.severity)
+
             return {
                 "opinion_id": opinion_id,
-                "treatment_type": cached.treatment_type.value,
-                "severity": cached.severity.value,
+                "treatment_type": treatment_type_val,
+                "severity": severity_val,
                 "confidence": cached.confidence,
                 "summary": {
                     "negative": cached.negative_count,
