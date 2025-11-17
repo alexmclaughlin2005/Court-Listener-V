@@ -2,18 +2,18 @@
 Citation API endpoints - citation network queries
 """
 from fastapi import APIRouter, Query, Depends, HTTPException
-from typing import List, Dict, Any, Set, Tuple
+from typing import List, Dict, Any, Set, Tuple, Optional
 from datetime import date
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, and_
 from app.core.database import get_db
-from app.models import Opinion, OpinionsCited, OpinionCluster, Docket, Court
+from app.models import Opinion, OpinionsCited, OpinionCluster, Docket, Court, CitationTreatment
 from collections import defaultdict
 
 router = APIRouter()
 
 
-def get_opinion_details(opinion_id: int, db: Session) -> Dict[str, Any]:
+def get_opinion_details(opinion_id: int, db: Session, include_treatment: bool = True) -> Dict[str, Any]:
     """Helper function to get opinion details with cluster and court info"""
     opinion = db.query(Opinion).filter(Opinion.id == opinion_id).first()
     if not opinion:
@@ -26,7 +26,7 @@ def get_opinion_details(opinion_id: int, db: Session) -> Dict[str, Any]:
     docket = db.query(Docket).filter(Docket.id == cluster.docket_id).first()
     court = db.query(Court).filter(Court.id == docket.court_id).first() if docket else None
 
-    return {
+    details = {
         "opinion_id": opinion.id,
         "cluster_id": cluster.id,
         "case_name": cluster.case_name,
@@ -36,6 +36,23 @@ def get_opinion_details(opinion_id: int, db: Session) -> Dict[str, Any]:
         "court_id": court.id if court else None,
         "court_name": court.short_name if court else None
     }
+
+    # Add treatment data if requested
+    if include_treatment:
+        treatment = db.query(CitationTreatment).filter(
+            CitationTreatment.opinion_id == opinion_id
+        ).first()
+
+        if treatment:
+            details["treatment"] = {
+                "type": treatment.treatment_type.value,
+                "severity": treatment.severity.value,
+                "confidence": treatment.confidence
+            }
+        else:
+            details["treatment"] = None
+
+    return details
 
 
 @router.get("/outbound/{opinion_id}")
