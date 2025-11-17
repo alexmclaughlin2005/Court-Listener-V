@@ -171,7 +171,10 @@ export default function CitationNetworkPage() {
     try {
       const analysis = await citationAPI.getDeepAnalysis(parseInt(opinionId), { depth: 4 })
       setDeepAnalysis(analysis)
-      setShowDeepAnalysis(true)
+      // Automatically show details if there are warnings
+      if (analysis.negative_treatment_count > 0) {
+        setShowDeepAnalysis(true)
+      }
     } catch (err) {
       console.error('Failed to fetch deep analysis:', err)
     } finally {
@@ -343,6 +346,13 @@ export default function CitationNetworkPage() {
   useEffect(() => {
     fetchNetwork()
   }, [fetchNetwork])
+
+  // Automatically fetch deep analysis when page loads
+  useEffect(() => {
+    if (opinionId && !deepAnalysis && !loadingAnalysis) {
+      fetchDeepAnalysis()
+    }
+  }, [opinionId, deepAnalysis, loadingAnalysis, fetchDeepAnalysis])
 
   if (loading) {
     return (

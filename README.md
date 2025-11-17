@@ -55,6 +55,7 @@ A powerful case law search and citation analysis tool built with CourtListener's
 ## Documentation
 
 - **[GETTING_STARTED.md](GETTING_STARTED.md)** - Complete getting started guide
+- **[TREATMENT_ANALYSIS.md](TREATMENT_ANALYSIS.md)** - Citation treatment analysis documentation
 - **[AI_Instructions.md](AI_Instructions.md)** - Technical documentation
 - **[AI_System_Prompt.md](AI_System_Prompt.md)** - Architecture overview
 - **[RAILWAY_CHECKLIST.md](RAILWAY_CHECKLIST.md)** - Step-by-step Railway setup

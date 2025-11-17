@@ -7,7 +7,8 @@ from datetime import date
 from sqlalchemy.orm import Session
 from sqlalchemy import func, desc, and_
 from app.core.database import get_db
-from app.models import Opinion, OpinionsCited, OpinionCluster, Docket, Court, CitationTreatment
+from app.models import Opinion, OpinionsCited, OpinionCluster, Docket, Court, CitationTreatment, RiskAnalysisCache
+from datetime import datetime, timedelta
 from collections import defaultdict
 
 router = APIRouter()
@@ -468,6 +469,18 @@ async def get_deep_citation_analysis(
     if not opinion:
         raise HTTPException(status_code=404, detail="Opinion not found")
 
+    # Check if we have a recent cached analysis (within 7 days)
+    cache_cutoff = datetime.now() - timedelta(days=7)
+    cached = db.query(RiskAnalysisCache).filter(
+        RiskAnalysisCache.opinion_id == opinion_id,
+        RiskAnalysisCache.analysis_depth == depth,
+        RiskAnalysisCache.updated_at >= cache_cutoff
+    ).first()
+
+    if cached:
+        # Return cached analysis
+        return cached.analysis_data
+
     # Data structures for deep analysis
     citation_tree = {}  # opinion_id -> {details, children, treatment_issues}
     all_opinions = {}   # opinion_id -> details
@@ -567,7 +580,8 @@ async def get_deep_citation_analysis(
     for warning in treatment_warnings:
         warnings_by_type[warning["treatment_type"]].append(warning)
 
-    return {
+    # Build result
+    result = {
         "opinion_id": opinion_id,
         "analysis_depth": depth,
         "total_cases_analyzed": total_cited_cases,
@@ -585,6 +599,43 @@ async def get_deep_citation_analysis(
         },
         "all_cases": all_opinions
     }
+
+    # Save to cache
+    try:
+        # Check if cache entry exists for this opinion/depth combo
+        existing_cache = db.query(RiskAnalysisCache).filter(
+            RiskAnalysisCache.opinion_id == opinion_id,
+            RiskAnalysisCache.analysis_depth == depth
+        ).first()
+
+        if existing_cache:
+            # Update existing
+            existing_cache.risk_score = round(risk_score, 2)
+            existing_cache.risk_level = risk_level
+            existing_cache.total_cases_analyzed = total_cited_cases
+            existing_cache.negative_treatment_count = negative_treatment_count
+            existing_cache.analysis_data = result
+            existing_cache.updated_at = datetime.now()
+        else:
+            # Create new cache entry
+            cache_entry = RiskAnalysisCache(
+                opinion_id=opinion_id,
+                analysis_depth=depth,
+                risk_score=round(risk_score, 2),
+                risk_level=risk_level,
+                total_cases_analyzed=total_cited_cases,
+                negative_treatment_count=negative_treatment_count,
+                analysis_data=result
+            )
+            db.add(cache_entry)
+
+        db.commit()
+    except Exception as e:
+        # Don't fail the request if caching fails
+        print(f"Failed to cache risk analysis: {e}")
+        db.rollback()
+
+    return result
 
 
 @router.get("/most-cited")
