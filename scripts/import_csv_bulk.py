@@ -22,11 +22,12 @@ def parse_value(value, field_name=None):
     if not value or value == '\\N' or value == 'NULL':
         return None
     if field_name in ['date_filed_is_approximate', 'blocked', 'in_use',
-                      'has_opinion_scraper', 'has_oral_argument_scraper']:
+                      'has_opinion_scraper', 'has_oral_argument_scraper', 'extracted_by_ocr']:
         return 't' if value.lower() in ['true', 't', '1', 'yes'] else 'f'
     # Note: court_id is a string (e.g., 'scotus', 'ca9'), but other IDs are integers
     if field_name in ['docket_id', 'citation_count', 'source', 'depth',
-                      'cited_opinion_id', 'citing_opinion_id', 'position']:
+                      'cited_opinion_id', 'citing_opinion_id', 'position',
+                      'described_opinion_id', 'describing_opinion_id', 'group_id']:
         try:
             return str(int(float(value)))
         except:
@@ -286,6 +287,104 @@ def import_clusters(conn, csv_path, batch_size=5000, limit=None):
     finally:
         cursor.close()
 
+def import_opinions(conn, csv_path, batch_size=5000, limit=None):
+    logger.info(f"Importing opinions from {csv_path}")
+    cursor = conn.cursor()
+
+    # Get valid cluster IDs
+    logger.info("Loading valid cluster IDs from database...")
+    cursor.execute("SELECT id FROM search_opinioncluster")
+    valid_clusters = set(str(row[0]) for row in cursor.fetchall())
+    logger.info(f"Found {len(valid_clusters)} valid clusters")
+
+    try:
+        with open(csv_path, 'r', encoding='utf-8', errors='replace') as f:
+            reader = csv.DictReader(f)
+            batch = []
+            count = 0
+            skipped = 0
+
+            for row in reader:
+                if limit and count >= limit:
+                    break
+
+                # Skip opinions without cluster_id
+                cluster_id = parse_value(row.get('cluster_id'), 'cluster_id')
+                if not cluster_id:
+                    skipped += 1
+                    continue
+
+                # Skip opinions with invalid cluster_id references
+                if cluster_id not in valid_clusters:
+                    skipped += 1
+                    continue
+
+                try:
+                    opinion_data = (
+                        parse_value(row['id'], 'id'),
+                        parse_value(row.get('date_created'), 'date_created'),
+                        parse_value(row.get('date_modified'), 'date_modified'),
+                        cluster_id,
+                        parse_value(row.get('plain_text'), 'plain_text'),
+                        parse_value(row.get('html'), 'html'),
+                        parse_value(row.get('html_with_citations'), 'html_with_citations'),
+                        parse_value(row.get('type'), 'type'),
+                        parse_value(row.get('sha1'), 'sha1'),
+                        parse_value(row.get('download_url'), 'download_url'),
+                        parse_value(row.get('local_path'), 'local_path'),
+                        parse_value(row.get('extracted_by_ocr', 'f'), 'extracted_by_ocr'),
+                        parse_value(row.get('word_count'), 'word_count'),
+                        parse_value(row.get('char_count'), 'char_count'),
+                    )
+                    batch.append(opinion_data)
+                    count += 1
+                except Exception as e:
+                    skipped += 1
+                    continue
+
+                if len(batch) >= batch_size:
+                    try:
+                        execute_batch(cursor, """
+                            INSERT INTO search_opinion
+                            (id, date_created, date_modified, cluster_id, plain_text, html,
+                             html_with_citations, type, sha1, download_url, local_path,
+                             extracted_by_ocr, word_count, char_count)
+                            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                            ON CONFLICT (id) DO NOTHING
+                        """, batch, page_size=batch_size)
+                        conn.commit()
+                        logger.info(f"✓ Imported {count} opinions (skipped {skipped})")
+                    except Exception as batch_error:
+                        logger.warning(f"⚠️  Batch insert failed, skipping {len(batch)} rows: {str(batch_error)[:100]}")
+                        skipped += len(batch)
+                        conn.rollback()
+                    batch = []
+
+            if batch:
+                try:
+                    execute_batch(cursor, """
+                        INSERT INTO search_opinion
+                        (id, date_created, date_modified, cluster_id, plain_text, html,
+                         html_with_citations, type, sha1, download_url, local_path,
+                         extracted_by_ocr, word_count, char_count)
+                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (id) DO NOTHING
+                    """, batch)
+                    conn.commit()
+                except Exception as batch_error:
+                    logger.warning(f"⚠️  Final batch failed, skipping {len(batch)} rows: {str(batch_error)[:100]}")
+                    skipped += len(batch)
+                    conn.rollback()
+
+        logger.info(f"✅ Imported {count} opinions total (skipped {skipped})")
+
+    except Exception as e:
+        logger.error(f"❌ Error importing opinions: {e}")
+        conn.rollback()
+        raise
+    finally:
+        cursor.close()
+
 def import_citations(conn, csv_path, batch_size=10000, limit=None):
     logger.info(f"Importing citations from {csv_path}")
     cursor = conn.cursor()
@@ -372,13 +471,109 @@ def import_citations(conn, csv_path, batch_size=10000, limit=None):
     finally:
         cursor.close()
 
+def import_parentheticals(conn, csv_path, batch_size=10000, limit=None):
+    logger.info(f"Importing parentheticals from {csv_path}")
+    cursor = conn.cursor()
+
+    # Get valid opinion IDs
+    logger.info("Loading valid opinion IDs from database...")
+    cursor.execute("SELECT id FROM search_opinion")
+    valid_opinions = set(str(row[0]) for row in cursor.fetchall())
+    logger.info(f"Found {len(valid_opinions)} valid opinions")
+
+    try:
+        with open(csv_path, 'r', encoding='utf-8', errors='replace') as f:
+            reader = csv.DictReader(f)
+            batch = []
+            count = 0
+            skipped = 0
+
+            for row in reader:
+                if limit and count >= limit:
+                    break
+
+                try:
+                    # Validate opinion IDs exist
+                    described_id = parse_value(row.get('described_opinion_id'), 'described_opinion_id')
+                    describing_id = parse_value(row.get('describing_opinion_id'), 'describing_opinion_id')
+
+                    if not described_id or not describing_id:
+                        skipped += 1
+                        continue
+
+                    # Skip if opinion IDs don't exist
+                    if described_id not in valid_opinions or describing_id not in valid_opinions:
+                        skipped += 1
+                        continue
+
+                    # Get text (required field)
+                    text = parse_value(row.get('text'))
+                    if not text:
+                        skipped += 1
+                        continue
+
+                    parenthetical_data = (
+                        parse_value(row.get('id'), 'id'),
+                        text,
+                        parse_value(row.get('score')),
+                        described_id,
+                        describing_id,
+                        parse_value(row.get('group_id')),
+                    )
+                    batch.append(parenthetical_data)
+                    count += 1
+                except Exception as e:
+                    skipped += 1
+                    continue
+
+                if len(batch) >= batch_size:
+                    try:
+                        execute_batch(cursor, """
+                            INSERT INTO search_parenthetical
+                            (id, text, score, described_opinion_id, describing_opinion_id, group_id)
+                            VALUES (%s, %s, %s, %s, %s, %s)
+                            ON CONFLICT (id) DO NOTHING
+                        """, batch, page_size=batch_size)
+                        conn.commit()
+                        logger.info(f"✓ Imported {count} parentheticals (skipped {skipped})")
+                    except Exception as batch_error:
+                        logger.warning(f"⚠️  Batch insert failed, skipping {len(batch)} rows: {str(batch_error)[:100]}")
+                        skipped += len(batch)
+                        conn.rollback()
+                    batch = []
+
+            if batch:
+                try:
+                    execute_batch(cursor, """
+                        INSERT INTO search_parenthetical
+                        (id, text, score, described_opinion_id, describing_opinion_id, group_id)
+                        VALUES (%s, %s, %s, %s, %s, %s)
+                        ON CONFLICT (id) DO NOTHING
+                    """, batch)
+                    conn.commit()
+                except Exception as batch_error:
+                    logger.warning(f"⚠️  Final batch failed, skipping {len(batch)} rows: {str(batch_error)[:100]}")
+                    skipped += len(batch)
+                    conn.rollback()
+
+        logger.info(f"✅ Imported {count} parentheticals total (skipped {skipped})")
+
+    except Exception as e:
+        logger.error(f"❌ Error importing parentheticals: {e}")
+        conn.rollback()
+        raise
+    finally:
+        cursor.close()
+
 def main():
     import argparse
     parser = argparse.ArgumentParser(description='Import CourtListener CSV data')
     parser.add_argument('--courts', help='Path to courts CSV')
     parser.add_argument('--dockets', help='Path to dockets CSV')
     parser.add_argument('--clusters', help='Path to opinion clusters CSV')
+    parser.add_argument('--opinions', help='Path to opinions CSV')
     parser.add_argument('--citations', help='Path to citations CSV')
+    parser.add_argument('--parentheticals', help='Path to parentheticals CSV')
     parser.add_argument('--limit', type=int, help='Limit rows (for testing)')
     parser.add_argument('--batch-size', type=int, default=5000, help='Batch size')
 
@@ -413,8 +608,14 @@ def main():
         if args.clusters:
             import_clusters(conn, args.clusters, batch_size=args.batch_size, limit=args.limit)
 
+        if args.opinions:
+            import_opinions(conn, args.opinions, batch_size=args.batch_size, limit=args.limit)
+
         if args.citations:
             import_citations(conn, args.citations, batch_size=args.batch_size, limit=args.limit)
+
+        if args.parentheticals:
+            import_parentheticals(conn, args.parentheticals, batch_size=args.batch_size, limit=args.limit)
 
         logger.info("🎉 Import complete!")
 
