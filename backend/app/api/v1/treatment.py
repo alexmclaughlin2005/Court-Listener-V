@@ -47,6 +47,12 @@ async def get_treatment(
             treatment_type_val = cached.treatment_type.value if hasattr(cached.treatment_type, 'value') else str(cached.treatment_type)
             severity_val = cached.severity.value if hasattr(cached.severity, 'value') else str(cached.severity)
 
+            # Safely get evidence field (may not exist in old cached records)
+            try:
+                evidence = cached.evidence if hasattr(cached, 'evidence') and cached.evidence else None
+            except Exception:
+                evidence = None
+
             return {
                 "opinion_id": opinion_id,
                 "treatment_type": treatment_type_val,
@@ -57,7 +63,7 @@ async def get_treatment(
                     "positive": cached.positive_count,
                     "neutral": cached.neutral_count
                 },
-                "evidence": cached.evidence if cached.evidence else None,
+                "evidence": evidence,
                 "last_updated": cached.last_updated.isoformat() if cached.last_updated else None,
                 "from_cache": True
             }
