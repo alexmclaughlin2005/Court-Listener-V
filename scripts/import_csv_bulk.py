@@ -21,12 +21,21 @@ def parse_value(value, field_name=None):
     if field_name in ['date_filed_is_approximate', 'blocked', 'in_use',
                       'has_opinion_scraper', 'has_oral_argument_scraper']:
         return 't' if value.lower() in ['true', 't', '1', 'yes'] else 'f'
-    if field_name in ['id', 'docket_id', 'citation_count', 'source', 'depth',
+    # Note: court_id is a string (e.g., 'scotus', 'ca9'), but other IDs are integers
+    if field_name in ['docket_id', 'citation_count', 'source', 'depth',
                       'cited_opinion_id', 'citing_opinion_id', 'position']:
         try:
             return str(int(float(value)))
         except:
             return None
+    # For numeric IDs that could be int or string (cluster id, docket id from CSV)
+    if field_name == 'id':
+        try:
+            # Try to parse as integer first
+            return str(int(float(value)))
+        except:
+            # If that fails, it's a string ID (like court IDs)
+            return value if value else None
     return value
 
 def import_courts(conn, csv_path, batch_size=1000):
