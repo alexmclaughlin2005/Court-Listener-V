@@ -59,7 +59,7 @@ export const CaseDetailFlyout: React.FC<CaseDetailFlyoutProps> = ({
       // Check if opinions have no text and need to be fetched
       if (caseData?.opinions && caseData.opinions.length > 0) {
         const hasNoText = caseData.opinions.every(
-          op => !op.plain_text && !op.html
+          op => !op.plain_text && !op.html && !op.html_with_citations
         );
 
         if (hasNoText) {
