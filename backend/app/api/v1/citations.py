@@ -58,8 +58,9 @@ def get_opinion_details(opinion_id: int, db: Session, include_treatment: bool = 
 @router.get("/outbound/{opinion_id}")
 async def get_outbound_citations(
     opinion_id: int,
-    depth: int = Query(1, ge=1, le=3, description="Citation depth"),
+    depth: int = Query(1, ge=1, le=5, description="Citation depth (1-5 levels)"),
     limit: int = Query(100, le=1000),
+    include_treatment_analysis: bool = Query(False, description="Include treatment risk analysis"),
     db: Session = Depends(get_db)
 ):
     """
@@ -67,7 +68,10 @@ async def get_outbound_citations(
 
     depth=1: Direct citations only
     depth=2: Citations + citations of citations
-    depth=3: Three levels deep
+    depth=3-5: Deeper citation chains
+
+    With include_treatment_analysis=true, also returns warnings about
+    negatively treated cases in the citation chain.
     """
     # Verify opinion exists
     opinion = db.query(Opinion).filter(Opinion.id == opinion_id).first()
@@ -78,6 +82,7 @@ async def get_outbound_citations(
     all_citations = []
     visited = {opinion_id}
     current_level = {opinion_id}
+    treatment_warnings = []
 
     for level in range(depth):
         if not current_level:
@@ -95,7 +100,7 @@ async def get_outbound_citations(
         for citation in citations:
             cited_id = citation.cited_opinion_id
             if cited_id not in visited:
-                details = get_opinion_details(cited_id, db)
+                details = get_opinion_details(cited_id, db, include_treatment=True)
                 if details:
                     details["depth"] = level + 1
                     details["citation_depth"] = citation.citation_depth
@@ -103,23 +108,64 @@ async def get_outbound_citations(
                     visited.add(cited_id)
                     next_level.add(cited_id)
 
+                    # Track negative treatments if analysis requested
+                    if include_treatment_analysis:
+                        treatment = details.get("treatment")
+                        if treatment and treatment.get("severity") == "NEGATIVE":
+                            treatment_warnings.append({
+                                "opinion_id": cited_id,
+                                "case_name": details.get("case_name_short") or details.get("case_name"),
+                                "treatment_type": treatment.get("type"),
+                                "confidence": treatment.get("confidence"),
+                                "depth": level + 1
+                            })
+
         current_level = next_level
 
     # Apply limit
     all_citations = all_citations[:limit]
 
-    return {
+    response = {
         "opinion_id": opinion_id,
         "depth": depth,
         "total_citations": len(all_citations),
         "citations": all_citations
     }
 
+    # Add treatment analysis if requested
+    if include_treatment_analysis:
+        negative_count = len(treatment_warnings)
+        total_count = len(all_citations)
+
+        risk_score = 0
+        if total_count > 0:
+            negative_percentage = (negative_count / total_count) * 100
+            depth_weighted_risk = sum(
+                (1.0 / max(w["depth"], 1)) * (w["confidence"] or 0.5)
+                for w in treatment_warnings
+            )
+            risk_score = min((negative_percentage * 0.5) + (depth_weighted_risk * 10), 100)
+
+        risk_level = "LOW"
+        if risk_score > 70:
+            risk_level = "HIGH"
+        elif risk_score > 40:
+            risk_level = "MEDIUM"
+
+        response["treatment_analysis"] = {
+            "negative_treatment_count": negative_count,
+            "risk_score": round(risk_score, 2),
+            "risk_level": risk_level,
+            "warnings": treatment_warnings
+        }
+
+    return response
+
 
 @router.get("/inbound/{opinion_id}")
 async def get_inbound_citations(
     opinion_id: int,
-    depth: int = Query(1, ge=1, le=3),
+    depth: int = Query(1, ge=1, le=5, description="Citation depth (1-5 levels)"),
     limit: int = Query(100, le=1000),
     sort: str = Query("date", enum=["date", "relevance", "citation_count"]),
     db: Session = Depends(get_db)
@@ -127,7 +173,8 @@ async def get_inbound_citations(
     """
     Get cases that cite this opinion (inbound citations)
 
-    This shows how influential/important a case is
+    This shows how influential/important a case is and tracks
+    how far the citation impact extends.
     """
     # Verify opinion exists
     opinion = db.query(Opinion).filter(Opinion.id == opinion_id).first()
@@ -359,6 +406,148 @@ async def get_citation_analytics(
         "citation_timeline": citation_timeline,
         "top_citing_courts": top_citing_courts,
         "related_cases": related_cases
+    }
+
+
+@router.get("/deep-analysis/{opinion_id}")
+async def get_deep_citation_analysis(
+    opinion_id: int,
+    depth: int = Query(4, ge=1, le=5, description="Citation depth (1-5 levels)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Deep citation analysis - fetch citations 4+ layers deep with treatment tracking
+
+    This identifies cases that rely on other cases, and checks if any of those
+    relied-upon cases have been negatively treated (overruled, reversed, etc.)
+
+    Returns:
+    - Full citation tree up to specified depth
+    - Treatment warnings for negatively treated cases
+    - Citation chain showing how cases are connected
+    - Risk assessment based on negative treatments in citation chain
+    """
+    # Verify opinion exists
+    opinion = db.query(Opinion).filter(Opinion.id == opinion_id).first()
+    if not opinion:
+        raise HTTPException(status_code=404, detail="Opinion not found")
+
+    # Data structures for deep analysis
+    citation_tree = {}  # opinion_id -> {details, children, treatment_issues}
+    all_opinions = {}   # opinion_id -> details
+    treatment_warnings = []  # List of cases with negative treatment
+    citation_chains = []  # Paths showing problematic citation chains
+
+    def process_citations_recursive(current_id: int, current_depth: int, chain: List[int]):
+        """Recursively process citations and track treatment issues"""
+        if current_depth > depth:
+            return
+
+        if current_id in all_opinions:
+            return  # Already processed
+
+        # Get opinion details with treatment
+        details = get_opinion_details(current_id, db, include_treatment=True)
+        if not details:
+            return
+
+        all_opinions[current_id] = details
+
+        # Check for negative treatment
+        treatment = details.get("treatment")
+        if treatment and treatment.get("severity") == "NEGATIVE":
+            warning = {
+                "opinion_id": current_id,
+                "case_name": details.get("case_name_short") or details.get("case_name"),
+                "treatment_type": treatment.get("type"),
+                "confidence": treatment.get("confidence"),
+                "depth": current_depth,
+                "citation_chain": chain + [current_id]
+            }
+            treatment_warnings.append(warning)
+
+            # Record the full citation chain
+            if len(chain) > 0:
+                citation_chains.append({
+                    "start_case": get_opinion_details(chain[0], db, include_treatment=False),
+                    "problem_case": details,
+                    "chain_length": len(chain) + 1,
+                    "chain_ids": chain + [current_id]
+                })
+
+        # Initialize tree node
+        if current_id not in citation_tree:
+            citation_tree[current_id] = {
+                "details": details,
+                "children": [],
+                "depth": current_depth,
+                "has_treatment_issues": treatment and treatment.get("severity") == "NEGATIVE"
+            }
+
+        # Get outbound citations (cases this opinion cites)
+        citations = db.query(
+            OpinionsCited.cited_opinion_id,
+            OpinionsCited.depth.label("citation_depth")
+        ).filter(
+            OpinionsCited.citing_opinion_id == current_id
+        ).all()
+
+        # Process each cited case recursively
+        for citation in citations:
+            cited_id = citation.cited_opinion_id
+            citation_tree[current_id]["children"].append(cited_id)
+
+            # Recurse to next level
+            process_citations_recursive(cited_id, current_depth + 1, chain + [current_id])
+
+    # Start recursive processing
+    process_citations_recursive(opinion_id, 0, [])
+
+    # Calculate risk assessment
+    total_cited_cases = len(all_opinions)
+    negative_treatment_count = len(treatment_warnings)
+    risk_score = 0
+
+    if total_cited_cases > 0:
+        # Risk score based on percentage of negatively treated cases and their depth
+        negative_percentage = (negative_treatment_count / total_cited_cases) * 100
+
+        # Weight by depth (closer citations are more concerning)
+        depth_weighted_risk = sum(
+            (1.0 / max(w["depth"], 1)) * (w["confidence"] or 0.5)
+            for w in treatment_warnings
+        )
+
+        risk_score = min((negative_percentage * 0.5) + (depth_weighted_risk * 10), 100)
+
+    risk_level = "LOW"
+    if risk_score > 70:
+        risk_level = "HIGH"
+    elif risk_score > 40:
+        risk_level = "MEDIUM"
+
+    # Group warnings by treatment type
+    warnings_by_type = defaultdict(list)
+    for warning in treatment_warnings:
+        warnings_by_type[warning["treatment_type"]].append(warning)
+
+    return {
+        "opinion_id": opinion_id,
+        "analysis_depth": depth,
+        "total_cases_analyzed": total_cited_cases,
+        "negative_treatment_count": negative_treatment_count,
+        "risk_assessment": {
+            "score": round(risk_score, 2),
+            "level": risk_level,
+            "description": f"Found {negative_treatment_count} negatively treated cases out of {total_cited_cases} total citations"
+        },
+        "treatment_warnings": treatment_warnings,
+        "warnings_by_type": dict(warnings_by_type),
+        "problematic_citation_chains": citation_chains[:20],  # Limit to top 20
+        "citation_tree": {
+            opinion_id: citation_tree.get(opinion_id, {})
+        },
+        "all_cases": all_opinions
     }
 
 

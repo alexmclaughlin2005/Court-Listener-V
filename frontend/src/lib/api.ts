@@ -277,10 +277,29 @@ export const citationAPI = {
   getOutbound(opinionId: number, params?: {
     depth?: number;
     limit?: number;
-  }): Promise<{ opinion_id: number; depth: number; total_citations: number; citations: CitationNode[] }> {
+    include_treatment_analysis?: boolean;
+  }): Promise<{
+    opinion_id: number;
+    depth: number;
+    total_citations: number;
+    citations: CitationNode[];
+    treatment_analysis?: {
+      negative_treatment_count: number;
+      risk_score: number;
+      risk_level: 'LOW' | 'MEDIUM' | 'HIGH';
+      warnings: Array<{
+        opinion_id: number;
+        case_name: string;
+        treatment_type: string;
+        confidence: number;
+        depth: number;
+      }>;
+    };
+  }> {
     const queryParams = new URLSearchParams();
     if (params?.depth) queryParams.append('depth', params.depth.toString());
     if (params?.limit) queryParams.append('limit', params.limit.toString());
+    if (params?.include_treatment_analysis) queryParams.append('include_treatment_analysis', 'true');
     return apiClient.get(`/api/v1/citations/outbound/${opinionId}?${queryParams}`);
   },
 
@@ -309,6 +328,51 @@ export const citationAPI = {
     message: string;
   }> {
     return apiClient.post(`/api/v1/citation-sync/sync/${opinionId}`);
+  },
+
+  /**
+   * Get deep citation analysis with treatment tracking (4+ layers deep)
+   */
+  getDeepAnalysis(opinionId: number, params?: {
+    depth?: number; // 1-5 levels, default 4
+  }): Promise<{
+    opinion_id: number;
+    analysis_depth: number;
+    total_cases_analyzed: number;
+    negative_treatment_count: number;
+    risk_assessment: {
+      score: number;
+      level: 'LOW' | 'MEDIUM' | 'HIGH';
+      description: string;
+    };
+    treatment_warnings: Array<{
+      opinion_id: number;
+      case_name: string;
+      treatment_type: string;
+      confidence: number;
+      depth: number;
+      citation_chain: number[];
+    }>;
+    warnings_by_type: Record<string, Array<{
+      opinion_id: number;
+      case_name: string;
+      treatment_type: string;
+      confidence: number;
+      depth: number;
+      citation_chain: number[];
+    }>>;
+    problematic_citation_chains: Array<{
+      start_case: any;
+      problem_case: any;
+      chain_length: number;
+      chain_ids: number[];
+    }>;
+    citation_tree: any;
+    all_cases: Record<number, any>;
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params?.depth) queryParams.append('depth', params.depth.toString());
+    return apiClient.get(`/api/v1/citations/deep-analysis/${opinionId}?${queryParams}`);
   },
 };
 
