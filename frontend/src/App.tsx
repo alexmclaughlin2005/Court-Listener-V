@@ -13,6 +13,7 @@ function App() {
         <Route path="/search" element={<SearchPage />} />
         <Route path="/case/:id" element={<CaseDetailPage />} />
         <Route path="/citations/network/:opinionId" element={<CitationNetworkPage />} />
+        <Route path="/citation-network/:opinionId" element={<CitationNetworkPage />} />
         <Route path="/citations/analytics/:opinionId" element={<CitationAnalyticsPage />} />
       </Routes>
     </BrowserRouter>
