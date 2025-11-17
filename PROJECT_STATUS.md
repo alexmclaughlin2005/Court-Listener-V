@@ -74,6 +74,14 @@ Building a Case Law Search and Citation Network Analysis tool using CourtListene
 - [x] Confidence scoring system
 - [x] 11,562+ treatments analyzed with evidence
 
+### Phase 7.5: Enhanced Treatment Analysis ✅ (Nov 17, 2025)
+- [x] Negation pattern detection (13 patterns)
+- [x] Context window analysis (±50 characters)
+- [x] Context modifiers (intensifiers and weakeners)
+- [x] Position tracking to prevent false positives
+- [x] Test suite for validation (test_negation_patterns.py)
+- [x] Documentation updated with enhancement details
+
 ---
 
 ## ⏳ In Progress
@@ -221,8 +229,8 @@ None - Core features implemented!
 
 ---
 
-**Last Action**: Completed full deployment - Backend (Railway), Frontend (Vercel), Database initialized
-**Next Action**: Test deployed application and begin implementing API endpoints
+**Last Action**: Enhanced treatment classifier with negation detection and context window analysis
+**Next Action**: Consider deploying enhanced backend to Railway or implementing additional API endpoints
 
 ---
 

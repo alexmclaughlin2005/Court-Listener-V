@@ -165,19 +165,19 @@ async def get_treatment_history(
     if not opinion:
         raise HTTPException(status_code=404, detail="Opinion not found")
 
-    # Get parentheticals with describing opinion details
+    # Get parentheticals with describing opinion details (using LEFT JOIN for missing opinions)
     parentheticals = db.query(
         Parenthetical,
         Opinion,
         OpinionCluster
-    ).join(
+    ).outerjoin(
         Opinion, Parenthetical.describing_opinion_id == Opinion.id
-    ).join(
+    ).outerjoin(
         OpinionCluster, Opinion.cluster_id == OpinionCluster.id
     ).filter(
         Parenthetical.described_opinion_id == opinion_id
     ).order_by(
-        OpinionCluster.date_filed.desc()
+        OpinionCluster.date_filed.desc().nullslast()
     ).limit(limit).all()
 
     # Classify each parenthetical
@@ -187,15 +187,16 @@ async def get_treatment_history(
     for paren, describing_opinion, cluster in parentheticals:
         result = classify_parenthetical(paren.text)
 
+        # Handle cases where describing opinion or cluster might not exist
         history.append({
             "parenthetical_id": paren.id,
             "treatment_type": result.treatment_type.value,
             "severity": result.severity.value,
             "confidence": result.confidence,
             "text": paren.text,
-            "describing_opinion_id": describing_opinion.id,
-            "describing_case_name": cluster.case_name,
-            "date_filed": cluster.date_filed.isoformat() if cluster.date_filed else None,
+            "describing_opinion_id": paren.describing_opinion_id,  # Always use the ID from parenthetical
+            "describing_case_name": cluster.case_name if cluster else f"Opinion {paren.describing_opinion_id}",
+            "date_filed": cluster.date_filed.isoformat() if cluster and cluster.date_filed else None,
             "keywords": [s.keyword for s in result.signals[:3]]  # Top 3 keywords
         })
 

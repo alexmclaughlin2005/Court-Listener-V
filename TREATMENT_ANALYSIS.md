@@ -200,12 +200,44 @@ Returns overall statistics about treatments in the database.
 
 ### Classification Algorithm
 
-1. **Keyword Detection**: Scans parenthetical text for legal treatment keywords
-2. **Score Calculation**: Weights keywords by severity (overruled=10, affirmed=8, cited=1)
-3. **Aggregation**: Combines scores across all parentheticals mentioning the case
-4. **Classification**: Determines overall treatment based on dominant signals
-5. **Confidence**: Calculates confidence score based on signal strength and count
-6. **Evidence Collection**: Gathers top examples with keywords and citing opinions
+1. **Negation Detection**: First detects negation patterns that reverse keyword meanings (e.g., "declined to follow" vs "followed")
+2. **Keyword Detection**: Scans parenthetical text for legal treatment keywords, skipping positions covered by negations
+3. **Context Analysis**: Examines ±50 characters around keywords to detect modifiers that intensify or weaken signals
+4. **Score Calculation**: Weights keywords by severity (overruled=10, affirmed=8, cited=1) and applies context modifiers
+5. **Aggregation**: Combines scores across all parentheticals mentioning the case
+6. **Classification**: Determines overall treatment based on dominant signals
+7. **Confidence**: Calculates confidence score based on signal strength and count
+8. **Evidence Collection**: Gathers top examples with keywords and citing opinions
+
+### Enhanced Features (Nov 2025)
+
+#### Negation Pattern Detection
+The classifier now detects negative keyword combinations that reverse meaning:
+
+- **"declined to follow"** → Negative (not positive for "follow")
+- **"refused to adopt"** → Negative (not positive for "adopt")
+- **"no longer followed"** → Strong negative
+- **"not followed"** → Negative
+- **"distinguished and rejected"** → Complex negative
+
+This prevents false positives where a positive keyword appears in a negated context.
+
+#### Context Window Analysis
+The classifier examines 50 characters before and after keywords to detect modifiers:
+
+**Intensifiers (increase score by 20-40%):**
+- "expressly", "explicitly" → 1.3x multiplier
+- "unequivocally", "categorically" → 1.4x multiplier
+- "clearly", "firmly", "strongly" → 1.2x multiplier
+
+**Weakeners (decrease score by 20-40%):**
+- "arguably", "possibly" → 0.6-0.7x multiplier
+- "might", "could", "seems" → 0.6-0.7x multiplier
+- "implicitly", "appears" → 0.7-0.8x multiplier
+
+Examples:
+- "expressly overruled" → stronger signal than just "overruled" (13 vs 10 points)
+- "arguably questioned" → weaker signal than just "questioned" (4 vs 6 points)
 
 ### Keyword Weights
 
