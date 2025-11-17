@@ -14,6 +14,7 @@ import 'reactflow/dist/style.css'
 import { citationAPI, CitationNetwork } from '../lib/api'
 import TreatmentBadge from '../components/TreatmentBadge'
 import CaseDetailFlyout from '../components/CaseDetailFlyout'
+import MethodologyModal from '../components/MethodologyModal'
 
 // Custom node component with treatment badge and depth indicator
 const CustomNode = memo(({ data }: NodeProps) => {
@@ -142,6 +143,9 @@ export default function CitationNetworkPage() {
   // Flyout state
   const [selectedCase, setSelectedCase] = useState<{ clusterId: number; opinionId: number } | null>(null)
   const [isFlyoutOpen, setIsFlyoutOpen] = useState(false)
+
+  // Methodology modal state
+  const [showMethodology, setShowMethodology] = useState(false)
 
   const [nodes, setNodes, onNodesChange] = useNodesState([])
   const [edges, setEdges, onEdgesChange] = useEdgesState([])
@@ -473,6 +477,13 @@ export default function CitationNetworkPage() {
                   {deepAnalysis.negative_treatment_count} of {deepAnalysis.total_cases_analyzed} cases have negative treatment
                 </span>
                 <button
+                  onClick={() => setShowMethodology(true)}
+                  className="text-sm text-gray-500 hover:text-gray-700 underline"
+                  title="Learn about our risk scoring methodology"
+                >
+                  More Info
+                </button>
+                <button
                   onClick={() => setShowDeepAnalysis(!showDeepAnalysis)}
                   className="ml-auto text-sm text-blue-600 hover:text-blue-700 font-medium"
                 >
@@ -696,6 +707,12 @@ export default function CitationNetworkPage() {
           onClose={handleCloseFlyout}
         />
       )}
+
+      {/* Methodology Modal */}
+      <MethodologyModal
+        isOpen={showMethodology}
+        onClose={() => setShowMethodology(false)}
+      />
     </div>
   )
 }
