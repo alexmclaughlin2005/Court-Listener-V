@@ -37,6 +37,7 @@ export interface Opinion {
   type: string;
   plain_text: string;
   html: string;
+  html_with_citations?: string;
   extracted_by_ocr: boolean;
 }
 
@@ -216,6 +217,20 @@ export const searchAPI = {
    */
   getCaseDetail(caseId: number): Promise<CaseDetail> {
     return apiClient.get<CaseDetail>(`/api/v1/search/cases/${caseId}`);
+  },
+
+  /**
+   * Fetch opinion text from CourtListener API (automatically caches in database)
+   */
+  fetchOpinionText(opinionId: number): Promise<{
+    opinion_id: number;
+    plain_text: string | null;
+    html: string | null;
+    html_with_citations: string | null;
+    source: string;
+    cached: boolean;
+  }> {
+    return apiClient.get(`/api/v1/opinions/${opinionId}/text`);
   },
 };
 

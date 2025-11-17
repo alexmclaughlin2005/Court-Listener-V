@@ -56,6 +56,18 @@ export const CaseDetailFlyout: React.FC<CaseDetailFlyoutProps> = ({
       setInboundCitations(inbound.citations || []);
       setOutboundCitations(outbound.citations || []);
 
+      // Check if opinions have no text and need to be fetched
+      if (caseData?.opinions && caseData.opinions.length > 0) {
+        const hasNoText = caseData.opinions.every(
+          op => !op.plain_text && !op.html
+        );
+
+        if (hasNoText) {
+          // Fetch opinion text from CourtListener API
+          await fetchOpinionText(caseData.opinions[0].id);
+        }
+      }
+
       // If no citations exist, try to sync from API
       if (citationStatus?.needs_sync && !citationStatus.has_citations) {
         syncCitationsFromAPI();
@@ -72,6 +84,33 @@ export const CaseDetailFlyout: React.FC<CaseDetailFlyoutProps> = ({
       fetchCaseData();
     }
   }, [isOpen, fetchCaseData]);
+
+  const fetchOpinionText = async (fetchOpinionId: number) => {
+    setSyncMessage('Fetching opinion text from CourtListener API...');
+
+    try {
+      // Use the opinions API to fetch and cache the text
+      const result = await searchAPI.fetchOpinionText(fetchOpinionId);
+
+      if (result.plain_text || result.html || result.html_with_citations) {
+        setSyncMessage('✓ Loaded opinion text from CourtListener');
+
+        // Refetch the case to get the updated opinion text
+        const updatedCase = await searchAPI.getCaseDetail(clusterId);
+        setCaseDetail(updatedCase);
+
+        // Clear message after 3 seconds
+        setTimeout(() => setSyncMessage(null), 3000);
+      } else {
+        setSyncMessage('No opinion text available from CourtListener');
+        setTimeout(() => setSyncMessage(null), 5000);
+      }
+    } catch (err) {
+      console.error('Error fetching opinion text:', err);
+      setSyncMessage('Failed to fetch opinion text');
+      setTimeout(() => setSyncMessage(null), 5000);
+    }
+  };
 
   const syncCitationsFromAPI = async () => {
     setSyncingCitations(true);
@@ -269,6 +308,24 @@ export const CaseDetailFlyout: React.FC<CaseDetailFlyoutProps> = ({
                 {/* Opinion Tab */}
                 {activeTab === 'opinion' && (
                   <div>
+                    {/* Sync Status Message */}
+                    {syncMessage && (
+                      <div className={`rounded-lg p-3 text-sm mb-4 ${
+                        syncMessage.startsWith('✓')
+                          ? 'bg-green-50 text-green-700 border border-green-200'
+                          : syncMessage.includes('Fetching')
+                          ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                          : 'bg-gray-50 text-gray-700 border border-gray-200'
+                      }`}>
+                        <div className="flex items-center gap-2">
+                          {syncMessage.includes('Fetching') && (
+                            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-blue-600"></div>
+                          )}
+                          <span>{syncMessage}</span>
+                        </div>
+                      </div>
+                    )}
+
                     {caseDetail.opinions.length === 0 ? (
                       <p className="text-gray-600">No opinion text available</p>
                     ) : (
@@ -281,12 +338,20 @@ export const CaseDetailFlyout: React.FC<CaseDetailFlyoutProps> = ({
                               </h4>
                             </div>
                             <div className="prose prose-sm max-w-none">
-                              <div
-                                className="text-gray-700 whitespace-pre-wrap"
-                                style={{ fontFamily: 'Georgia, serif', lineHeight: '1.6' }}
-                              >
-                                {opinion.plain_text || opinion.html || 'Opinion text not available'}
-                              </div>
+                              {opinion.html_with_citations ? (
+                                <div
+                                  className="text-gray-700"
+                                  style={{ fontFamily: 'Georgia, serif', lineHeight: '1.6' }}
+                                  dangerouslySetInnerHTML={{ __html: opinion.html_with_citations }}
+                                />
+                              ) : (
+                                <div
+                                  className="text-gray-700 whitespace-pre-wrap"
+                                  style={{ fontFamily: 'Georgia, serif', lineHeight: '1.6' }}
+                                >
+                                  {opinion.plain_text || opinion.html || 'Opinion text not available'}
+                                </div>
+                              )}
                             </div>
                           </div>
                         ))}
