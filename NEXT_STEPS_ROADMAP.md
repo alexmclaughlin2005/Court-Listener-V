@@ -14,6 +14,15 @@
 - ✅ Frontend connected to backend API
 - ✅ Search functionality working
 - ✅ TypeScript types configured
+- ✅ Case detail page implemented
+- ✅ Citation network visualization with React Flow
+- ✅ Interactive citation graph with treatment badges
+- ✅ Clickable case detail flyout from network nodes
+- ✅ Automatic citation syncing from CourtListener API
+- ✅ Automatic opinion text fetching from CourtListener API
+- ✅ Opinion HTML formatting with custom CSS
+- ✅ Three-tab flyout (Opinion, Treatment, Citations)
+- ✅ URL routing fixed for /citation-network paths
 
 ## 🎯 Current Status
 
@@ -26,46 +35,16 @@
 - ✅ Search cases by name
 - ✅ View search results with case details
 - ✅ Sort by relevance, date, or citations
-- ✅ Backend citation network APIs (ready for frontend)
+- ✅ Interactive citation network visualization
+- ✅ Clickable network nodes opening detailed case flyout
+- ✅ Case treatment analysis with visual badges
+- ✅ Automatic data fetching from CourtListener API
+- ✅ Three-tab case detail view (Opinion, Treatment, Citations)
+- ✅ Formatted legal opinion text rendering
 
 ## 🚀 Next Steps (Priority Order)
 
-### Step 1: Implement Case Detail Page 📄
-
-**Why**: Users can click on search results but there's no detail view yet.
-
-**Tasks**:
-1. Create `frontend/src/pages/CaseDetailPage.tsx`
-2. Display:
-   - Full case information (name, court, date, judges)
-   - Opinion text (plain_text or html)
-   - Citation count and precedential status
-   - Link to citation network visualization
-3. Add route in `frontend/src/App.tsx`
-4. Style with Tailwind CSS
-
-**API Endpoint**: Already implemented at `/api/v1/search/cases/{case_id}`
-
-### Step 2: Add Citation Network Visualization 🕸️
-
-**Why**: Core feature - visualize how cases cite each other.
-
-**Tasks**:
-1. Install D3.js or React Flow: `npm install react-flow-renderer`
-2. Create `frontend/src/pages/CitationNetworkPage.tsx`
-3. Fetch data from `/api/v1/citations/network/{opinion_id}`
-4. Display interactive graph:
-   - Center node = current case
-   - Outbound edges = cases this one cites
-   - Inbound edges = cases that cite this one
-5. Add controls for depth and max nodes
-
-**API Endpoints**: Already implemented:
-- `/api/v1/citations/network/{opinion_id}` - Graph data
-- `/api/v1/citations/inbound/{opinion_id}` - Cases citing this
-- `/api/v1/citations/outbound/{opinion_id}` - Cases cited by this
-
-### Step 3: Add Citation Analytics Dashboard 📊
+### Step 1: Add Citation Analytics Dashboard 📊
 
 **Why**: Show citation patterns and related cases.
 
@@ -82,7 +61,7 @@
 - `/api/v1/citations/analytics/{opinion_id}` - Analytics data
 - `/api/v1/citations/most-cited` - Most cited cases
 
-### Step 4: Add Advanced Search Filters 🔍
+### Step 2: Add Advanced Search Filters 🔍
 
 **Why**: Allow filtering by court, date range, citation count.
 
@@ -95,7 +74,7 @@
 
 **API Support**: Already implemented in `/api/v1/search/cases`
 
-### Step 5: Import Full CourtListener Dataset 📦
+### Step 3: Import Full CourtListener Dataset 📦
 
 **Why**: Replace sample data with real case law.
 
@@ -126,21 +105,29 @@
 - [x] Implement citation network API
 - [x] Build search page UI
 - [x] Connect frontend to backend
+- [x] Implement case detail page
+- [x] Add citation network visualization with React Flow
+- [x] Create interactive citation graph
+- [x] Build case detail flyout component
+- [x] Add automatic citation syncing
+- [x] Add automatic opinion text fetching
+- [x] Implement treatment badge system
+- [x] Add opinion HTML formatting
+- [x] Fix URL routing for citation network
 
 ### In Progress 🚧
-- [ ] Implement case detail page
-- [ ] Add citation network visualization
 - [ ] Add citation analytics dashboard
 - [ ] Add advanced search filters
 - [ ] Import full dataset
 
 ## 🎯 Recommended Next Step
 
-**Build the Case Detail Page** - This is the natural next step since:
-1. Search results link to `/case/{id}` but the page doesn't exist yet
-2. It's needed before citation network visualization
-3. The backend API is already ready
-4. It's a straightforward UI task
+**Build Citation Analytics Dashboard** - This is the natural next progression since:
+1. Citation network visualization is complete
+2. Users can now explore case relationships
+3. Analytics would provide aggregate insights (citation trends over time, top citing courts)
+4. Backend analytics API is already implemented
+5. Would complement the interactive network view
 
-Would you like me to implement the Case Detail Page now?
+Alternatively, **Import Full Dataset** would make the existing features more useful with real case law data.
 
