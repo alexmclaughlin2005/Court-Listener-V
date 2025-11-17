@@ -204,7 +204,6 @@ class SampleDataGenerator:
                 opinion = Opinion(
                     cluster_id=cluster.id,
                     type=opinion_types[j] if j < len(opinion_types) else opinion_types[0],
-                    author_str=self._generate_judge_name(),
                     plain_text=self._generate_opinion_text(cluster.case_name),
                     html=f"<p>{self._generate_opinion_text(cluster.case_name)}</p>",
                     extracted_by_ocr=False,
