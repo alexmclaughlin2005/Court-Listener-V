@@ -4,7 +4,7 @@ Admin endpoints for data management
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 import os
-import requests
+import httpx
 import bz2
 import shutil
 from typing import Optional
@@ -51,20 +51,20 @@ def download_opinions_csv():
 
         output_path = os.path.join(VOLUME_PATH, "opinions-2025-10-31.csv.bz2")
 
-        # Download file
+        # Download file using httpx
         download_status["message"] = f"Downloading from {OPINIONS_URL}"
-        response = requests.get(OPINIONS_URL, stream=True, timeout=30)
-        response.raise_for_status()
+        with httpx.stream("GET", OPINIONS_URL, timeout=None) as response:
+            response.raise_for_status()
 
-        total_size = int(response.headers.get('content-length', 0))
-        downloaded = 0
+            total_size = int(response.headers.get('content-length', 0))
+            downloaded = 0
 
-        with open(output_path, 'wb') as f:
-            for chunk in response.iter_content(chunk_size=8192):
-                if chunk:
-                    f.write(chunk)
-                    downloaded += len(chunk)
-                    download_status["progress"] = int((downloaded / total_size) * 100) if total_size else 0
+            with open(output_path, 'wb') as f:
+                for chunk in response.iter_bytes(chunk_size=8192):
+                    if chunk:
+                        f.write(chunk)
+                        downloaded += len(chunk)
+                        download_status["progress"] = int((downloaded / total_size) * 100) if total_size else 0
 
         download_status["status"] = "extracting"
         download_status["message"] = "Extracting compressed file..."
