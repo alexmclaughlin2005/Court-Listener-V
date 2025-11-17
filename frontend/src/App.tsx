@@ -2,6 +2,8 @@ import { BrowserRouter, Routes, Route } from 'react-router-dom'
 import HomePage from './pages/HomePage'
 import CaseDetailPage from './pages/CaseDetailPage'
 import SearchPage from './pages/SearchPage'
+import CitationNetworkPage from './pages/CitationNetworkPage'
+import CitationAnalyticsPage from './pages/CitationAnalyticsPage'
 
 function App() {
   return (
@@ -9,7 +11,9 @@ function App() {
       <Routes>
         <Route path="/" element={<HomePage />} />
         <Route path="/search" element={<SearchPage />} />
-        <Route path="/case/:caseId" element={<CaseDetailPage />} />
+        <Route path="/case/:id" element={<CaseDetailPage />} />
+        <Route path="/citations/network/:opinionId" element={<CitationNetworkPage />} />
+        <Route path="/citations/analytics/:opinionId" element={<CitationAnalyticsPage />} />
       </Routes>
     </BrowserRouter>
   )
