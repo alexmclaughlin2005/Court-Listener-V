@@ -95,9 +95,24 @@ export const CaseDetailFlyout: React.FC<CaseDetailFlyoutProps> = ({
       if (result.plain_text || result.html || result.html_with_citations) {
         setSyncMessage('✓ Loaded opinion text from CourtListener');
 
-        // Refetch the case to get the updated opinion text
-        const updatedCase = await searchAPI.getCaseDetail(clusterId);
-        setCaseDetail(updatedCase);
+        // Update the case detail state directly with the fetched text
+        if (caseDetail) {
+          const updatedOpinions = caseDetail.opinions.map(op =>
+            op.id === fetchOpinionId
+              ? {
+                  ...op,
+                  plain_text: result.plain_text || op.plain_text,
+                  html: result.html || op.html,
+                  html_with_citations: result.html_with_citations || op.html_with_citations
+                }
+              : op
+          );
+
+          setCaseDetail({
+            ...caseDetail,
+            opinions: updatedOpinions
+          });
+        }
 
         // Clear message after 3 seconds
         setTimeout(() => setSyncMessage(null), 3000);
