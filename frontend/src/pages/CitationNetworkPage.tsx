@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, memo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import ReactFlow, {
   Node,
@@ -8,10 +8,64 @@ import ReactFlow, {
   useNodesState,
   useEdgesState,
   MarkerType,
+  NodeProps,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 import { citationAPI, CitationNetwork } from '../lib/api'
 import TreatmentBadge from '../components/TreatmentBadge'
+
+// Custom node component with treatment badge
+const CustomNode = memo(({ data }: NodeProps) => {
+  const TREATMENT_ICONS: Record<string, string> = {
+    OVERRULED: '⛔',
+    REVERSED: '🔴',
+    VACATED: '⭕',
+    CRITICIZED: '🟠',
+    QUESTIONED: '🟡',
+    AFFIRMED: '✅',
+    FOLLOWED: '🟢',
+    DISTINGUISHED: '🔵',
+    CITED: '📄',
+    UNKNOWN: '❓',
+  }
+
+  return (
+    <div style={{
+      padding: '10px',
+      borderRadius: '8px',
+      minWidth: '150px',
+      textAlign: 'center',
+      position: 'relative'
+    }}>
+      {data.treatment && (
+        <div style={{
+          position: 'absolute',
+          top: '-8px',
+          right: '-8px',
+          fontSize: '20px',
+          background: 'white',
+          borderRadius: '50%',
+          width: '32px',
+          height: '32px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
+          border: '2px solid #1e293b',
+        }}>
+          {TREATMENT_ICONS[data.treatment.type] || '❓'}
+        </div>
+      )}
+      <div style={{ fontSize: '12px', fontWeight: 'bold', color: 'white' }}>
+        {data.label}
+      </div>
+    </div>
+  )
+})
+
+const nodeTypes = {
+  custom: CustomNode,
+}
 
 export default function CitationNetworkPage() {
   const { opinionId } = useParams<{ opinionId: string }>()
@@ -74,6 +128,7 @@ export default function CitationNetworkPage() {
 
         return {
           id: node.opinion_id.toString(),
+          type: 'custom',
           data: {
             label: node.case_name_short || node.case_name,
             ...node,
@@ -84,9 +139,6 @@ export default function CitationNetworkPage() {
             color: 'white',
             border: node.treatment ? '3px solid #1e293b' : '2px solid #1e293b',
             borderRadius: '8px',
-            padding: '10px',
-            fontSize: '12px',
-            fontWeight: 'bold',
             boxShadow: node.treatment ? '0 4px 6px -1px rgba(0, 0, 0, 0.3)' : undefined,
           },
         }
@@ -230,6 +282,7 @@ export default function CitationNetworkPage() {
           <ReactFlow
             nodes={nodes}
             edges={edges}
+            nodeTypes={nodeTypes}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             fitView
