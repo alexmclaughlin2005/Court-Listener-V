@@ -38,10 +38,17 @@ def import_courts(conn, csv_path, batch_size=1000):
             reader = csv.DictReader(f)
             batch = []
             count = 0
+            skipped = 0
 
             for row in reader:
+                # Skip rows with no ID
+                court_id = parse_value(row.get('id'), 'id')
+                if not court_id:
+                    skipped += 1
+                    continue
+
                 court_data = (
-                    parse_value(row['id'], 'id'),
+                    court_id,
                     parse_value(row.get('full_name', ''), 'full_name'),
                     parse_value(row.get('short_name', ''), 'short_name'),
                     parse_value(row.get('citation_string', ''), 'citation_string'),
@@ -62,7 +69,7 @@ def import_courts(conn, csv_path, batch_size=1000):
                         ON CONFLICT (id) DO NOTHING
                     """, batch)
                     conn.commit()
-                    logger.info(f"✓ Imported {count} courts")
+                    logger.info(f"✓ Imported {count} courts (skipped {skipped})")
                     batch = []
 
             if batch:
@@ -75,7 +82,7 @@ def import_courts(conn, csv_path, batch_size=1000):
                 """, batch)
                 conn.commit()
 
-        logger.info(f"✅ Imported {count} courts total")
+        logger.info(f"✅ Imported {count} courts total (skipped {skipped} invalid rows)")
 
     except Exception as e:
         logger.error(f"❌ Error importing courts: {e}")
