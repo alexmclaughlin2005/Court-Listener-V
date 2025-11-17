@@ -110,6 +110,46 @@ async def start_download_opinions(background_tasks: BackgroundTasks):
 
     return download_status
 
+@router.delete("/cleanup-download")
+async def cleanup_download():
+    """Delete partial or failed downloads to free up space"""
+    volume_path = os.getenv("RAILWAY_VOLUME_MOUNT_PATH", "/data")
+
+    if not os.path.exists(volume_path):
+        raise HTTPException(status_code=404, detail="Volume path does not exist")
+
+    deleted_files = []
+    freed_space = 0
+
+    # Files to clean up
+    cleanup_patterns = [
+        "opinions-2025-10-31.csv.bz2",
+        "opinions-2025-10-31.csv"
+    ]
+
+    for pattern in cleanup_patterns:
+        file_path = os.path.join(volume_path, pattern)
+        if os.path.exists(file_path):
+            size = os.path.getsize(file_path)
+            os.remove(file_path)
+            deleted_files.append(pattern)
+            freed_space += size
+
+    # Reset download status
+    global download_status
+    download_status = {
+        "status": "idle",
+        "progress": 0,
+        "message": "",
+        "file_path": None
+    }
+
+    return {
+        "deleted_files": deleted_files,
+        "freed_space_gb": round(freed_space / (1024**3), 2),
+        "message": f"Cleaned up {len(deleted_files)} files, freed {round(freed_space / (1024**3), 2)} GB"
+    }
+
 @router.get("/volume-info")
 async def get_volume_info():
     """Get information about the Railway volume"""
@@ -124,10 +164,12 @@ async def get_volume_info():
 
     # Get directory contents
     files = []
+    total_size = 0
     try:
         for item in os.listdir(volume_path):
             item_path = os.path.join(volume_path, item)
             size = os.path.getsize(item_path) if os.path.isfile(item_path) else 0
+            total_size += size
             files.append({
                 "name": item,
                 "size_bytes": size,
@@ -146,5 +188,6 @@ async def get_volume_info():
         "path": volume_path,
         "writable": os.access(volume_path, os.W_OK),
         "files": files,
-        "total_files": len(files)
+        "total_files": len(files),
+        "total_size_gb": round(total_size / (1024**3), 2)
     }
