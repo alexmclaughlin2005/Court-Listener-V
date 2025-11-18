@@ -7,6 +7,8 @@
  * - Impact on legal theories
  * - Connection to citing cases
  * - Practical implications
+ *
+ * @version 1.0.0
  */
 import React, { useState } from 'react';
 import { aiAnalysisAPI } from '../lib/api';
