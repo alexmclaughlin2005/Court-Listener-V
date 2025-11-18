@@ -378,7 +378,7 @@ export default function CitationNetworkPage() {
                 <TreatmentBadge
                   treatment={{
                     type: deepAnalysis.risk_assessment.level || 'UNKNOWN',
-                    severity: (deepAnalysis.risk_assessment.level || 'UNKNOWN').toLowerCase(),
+                    severity: (deepAnalysis.risk_assessment.level || 'UNKNOWN') as any,
                     confidence: (deepAnalysis.risk_assessment.score || 0) / 100,
                   }}
                   size="md"
