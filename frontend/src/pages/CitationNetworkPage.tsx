@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
 // @ts-ignore - incrementally re-enabling
 import cytoscape from 'cytoscape'
@@ -101,9 +101,10 @@ export default function CitationNetworkPage() {
   const [error, setError] = useState<string | null>(null)
   const [depth, setDepth] = useState(1)
   const [maxNodes, setMaxNodes] = useState(50)
-  // TEMPORARILY DISABLED - Cytoscape refs
-  // const cyRef = useRef<cytoscape.Core | null>(null)
-  // const [containerReady, setContainerReady] = useState(false)
+  // @ts-ignore - incrementally re-enabling
+  const cyRef = useRef<cytoscape.Core | null>(null)
+  // @ts-ignore - incrementally re-enabling
+  const [containerReady, setContainerReady] = useState(false)
 
   // Deep analysis state
   const [deepAnalysis, setDeepAnalysis] = useState<any>(null)
