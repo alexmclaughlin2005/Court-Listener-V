@@ -1,8 +1,15 @@
 """
-AI Risk Analyzer - Uses Claude Sonnet 4.5 to analyze citation risks
+AI Risk Analyzer - Uses Claude AI to analyze citation risks
 
-Provides detailed AI-powered analysis of why a case is at risk, what legal
-theories might be impacted, and the connection between citing and cited cases.
+Two-tier analysis system:
+- Quick Analysis: Claude 3.7 Haiku (fast, concise)
+- Deep Analysis: Claude Sonnet 4.5 (comprehensive)
+
+Provides AI-powered analysis including:
+- Opinion text quality assessment
+- Overturn status determination (OVERTURNED vs QUESTIONED)
+- Legal impact analysis
+- Practical guidance for practitioners
 """
 import os
 import logging
@@ -13,7 +20,15 @@ logger = logging.getLogger(__name__)
 
 
 class AIRiskAnalyzer:
-    """Analyzes citation risks using Claude Sonnet 4.5"""
+    """
+    Analyzes citation risks using Claude AI models
+
+    Features:
+    - Two-tier analysis: Quick (Haiku 3.7) or Deep (Sonnet 4.5)
+    - Opinion text quality assessment
+    - Overturn status determination
+    - Practical guidance for legal practitioners
+    """
 
     def __init__(self):
         api_key = os.environ.get('ANTHROPIC_API_KEY')
@@ -67,8 +82,8 @@ class AIRiskAnalyzer:
         try:
             # Select model based on analysis type
             if use_quick_analysis:
-                model = "claude-3-5-haiku-20241022"  # Latest Haiku 3.5
-                model_name = "claude-3.5-haiku"
+                model = "claude-3-7-haiku-20250110"  # Latest Haiku 3.7 (Jan 2025)
+                model_name = "claude-3.7-haiku"
                 # Use shorter prompt and fewer tokens for quick analysis
                 if max_tokens > 1000:
                     max_tokens = 1000
@@ -165,11 +180,11 @@ class AIRiskAnalyzer:
             citing_cases_text = "\nNone provided"
 
         if quick_analysis:
-            # Shorter prompt for Haiku - focus on quick summary
-            prompt = f"""You are a legal research assistant. Analyze this case that has been flagged with citation risk.
+            # Shorter prompt for Haiku - focus on quick summary with quality assessment
+            prompt = f"""You are a legal research assistant analyzing a case flagged with citation risk.
 
 **Case:** {case_name}
-**Risk:** {risk_type} ({severity}, {int(confidence * 100)}% confidence, {negative_count} negative citations)
+**Risk Classification:** {risk_type} ({severity}, {int(confidence * 100)}% confidence, {negative_count} negative citations)
 **Citing Cases:**{citing_cases_text}
 
 **Opinion Text:**
@@ -177,14 +192,31 @@ class AIRiskAnalyzer:
 
 ---
 
-Provide a brief analysis (2-3 paragraphs):
-1. Why is this case at risk? What holdings are challenged?
-2. What legal theories or doctrines might be affected?
-3. Key practical implications for legal professionals.
+Provide a structured analysis in 3-4 paragraphs:
 
-Keep it concise and accessible."""
+**1. Opinion Quality Assessment**
+First, assess whether this is a high-quality opinion text or if it appears to be OCR/poor quality. Look for:
+- Coherent legal reasoning and structure
+- Proper formatting and citations
+- Clear holdings and analysis
+If the text quality is poor (garbled, OCR errors, incomplete), note this prominently as it affects the reliability of this analysis.
+
+**2. Overturn Status**
+Determine if this opinion has been **fully overturned** or just criticized/questioned. State clearly:
+- "OVERTURNED" if reversed, vacated, or abrogated by a higher court
+- "QUESTIONED" if criticized, distinguished, or called into doubt
+- "PARTIAL" if only certain holdings are affected
+Base this on the risk type ({risk_type}) and citing cases evidence.
+
+**3. Why At Risk & Legal Impact**
+Explain which specific holdings are challenged and what legal theories/doctrines are affected.
+
+**4. Practical Guidance**
+Should practitioners avoid citing this case entirely, or is it still valid for certain propositions?
+
+Be direct and conclusive. If text quality prevents confident analysis, say so upfront."""
         else:
-            # Full comprehensive prompt for Sonnet 4.5
+            # Full comprehensive prompt for Sonnet 4.5 with quality and overturn assessment
             prompt = f"""You are a legal research assistant analyzing citation risks for case law. You have been provided with a legal opinion that has been flagged as having citation risk.
 
 **Case Being Analyzed:**
@@ -203,22 +235,57 @@ Keep it concise and accessible."""
 
 ---
 
-Please provide a comprehensive analysis addressing the following:
+Please provide a comprehensive analysis addressing the following sections:
 
-## 1. Risk Overview
-Explain in clear, accessible language why this case is at risk. What specific legal issues or holdings have been questioned, criticized, or overturned?
+## 1. Opinion Text Quality Assessment
+**First and foremost**, evaluate the quality and reliability of the opinion text itself:
+- Is this a clean, well-formatted opinion with coherent legal reasoning?
+- Are there signs of OCR errors, garbled text, or missing sections?
+- Can you identify clear holdings and legal analysis?
+- Does the text quality allow for confident analysis?
 
-## 2. Impact on Legal Theories
-Analyze what case theories, legal doctrines, or precedential value might be impacted if this case is no longer considered good law. Consider:
-- What legal principles does this case establish?
-- What doctrines or tests does it create or apply?
-- How might practitioners need to adjust their arguments?
+If the text quality is poor or unreliable, state this prominently at the start. Poor OCR quality or incomplete text significantly undermines the value of any subsequent analysis.
 
-## 3. Connection to Citing Cases
-Explain the relationship between this opinion and the cases that cite it negatively. Why did subsequent courts take issue with this case? Are there specific holdings, reasoning, or factual distinctions that led to the negative treatment?
+## 2. Overturn Status Determination
+Make a clear determination about the current status of this case:
 
-## 4. Practical Implications
-What should legal professionals know when considering whether to cite this case? Is it still useful for certain propositions while risky for others?
+**OVERTURNED** - The case has been reversed, vacated, or abrogated by a higher court. The precedent is no longer binding or authoritative.
+
+**QUESTIONED** - The case has been criticized, distinguished, or called into doubt but not formally overturned. Some precedential value remains but with caveats.
+
+**PARTIALLY AFFECTED** - Only certain holdings or aspects of the case have been undermined. Other parts remain good law.
+
+State your determination clearly and explain the basis (e.g., the risk type "{risk_type}" and evidence from citing cases).
+
+## 3. Risk Overview and Affected Holdings
+Explain in detail:
+- Which specific legal issues, holdings, or reasoning have been challenged?
+- What was the original precedent established by this case?
+- How have subsequent courts treated or distinguished this precedent?
+
+## 4. Impact on Legal Theories and Doctrines
+Analyze the broader implications:
+- What legal principles, doctrines, or tests are affected?
+- How might the loss or weakening of this precedent impact legal practice?
+- Are there alternative authorities practitioners should consider?
+- What areas of law are most affected?
+
+## 5. Connection to Citing Cases
+Explain the relationship between this opinion and the cases citing it negatively:
+- Why did subsequent courts take issue with this case?
+- Are there factual distinctions or changes in legal landscape?
+- Is the criticism focused on specific holdings or broader reasoning?
+- Do citing cases offer alternative approaches?
+
+## 6. Practical Implications for Practitioners
+Provide clear, actionable guidance:
+- Should this case be avoided entirely or can it still be cited for certain propositions?
+- What are the risks of relying on this precedent?
+- Are there stronger alternative authorities?
+- In what contexts (if any) is this case still useful?
+- Should lawyers distinguish or defend this case when opponents cite it?
+
+**Important**: If the opinion text quality is poor, emphasize that practitioners should verify this analysis against an official reporter version before making citation decisions.
 
 Please provide your analysis in a well-structured, professional format suitable for legal professionals."""
 
