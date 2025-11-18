@@ -4,7 +4,7 @@
  * Displays:
  * - Full case details (name, court, date, etc.)
  * - Opinion text
- * - Treatment analysis with badges
+ * - Citation risk analysis with badges
  * - Citation network (inbound/outbound)
  * - Quick navigation links
  */
@@ -32,7 +32,7 @@ export const CaseDetailFlyout: React.FC<CaseDetailFlyoutProps> = ({
   const [outboundCitations, setOutboundCitations] = useState<CitationNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'opinion' | 'treatment' | 'citations'>('opinion');
+  const [activeTab, setActiveTab] = useState<'opinion' | 'risk' | 'citations'>('opinion');
   const [syncingCitations, setSyncingCitations] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
@@ -243,7 +243,7 @@ export const CaseDetailFlyout: React.FC<CaseDetailFlyoutProps> = ({
                   </div>
                 </div>
 
-                {/* Treatment Badge */}
+                {/* Citation Risk Badge */}
                 {treatment && (
                   <div className="mt-3">
                     <TreatmentBadge
@@ -288,14 +288,14 @@ export const CaseDetailFlyout: React.FC<CaseDetailFlyoutProps> = ({
                     Opinion Text
                   </button>
                   <button
-                    onClick={() => setActiveTab('treatment')}
+                    onClick={() => setActiveTab('risk')}
                     className={`px-4 py-3 font-medium text-sm border-b-2 transition ${
-                      activeTab === 'treatment'
+                      activeTab === 'risk'
                         ? 'border-blue-600 text-blue-600'
                         : 'border-transparent text-gray-600 hover:text-gray-900'
                     }`}
                   >
-                    Treatment
+                    Citation Risk
                     {treatment && treatment.summary.total && treatment.summary.total > 0 && (
                       <span className="ml-2 px-2 py-0.5 text-xs bg-blue-100 text-blue-700 rounded-full">
                         {treatment.summary.total}
@@ -381,12 +381,12 @@ export const CaseDetailFlyout: React.FC<CaseDetailFlyoutProps> = ({
                   </div>
                 )}
 
-                {/* Treatment Tab */}
-                {activeTab === 'treatment' && (
+                {/* Citation Risk Tab */}
+                {activeTab === 'risk' && (
                   <div>
                     {!treatment || !treatment.summary.total || treatment.summary.total === 0 ? (
                       <div className="text-center py-8 text-gray-600">
-                        <p>No treatment information available for this case.</p>
+                        <p>No citation risk information available for this case.</p>
                       </div>
                     ) : (
                       <div className="space-y-6">
@@ -412,10 +412,10 @@ export const CaseDetailFlyout: React.FC<CaseDetailFlyoutProps> = ({
                           </div>
                         </div>
 
-                        {/* Significant Treatments */}
+                        {/* Significant Citation Risks */}
                         {treatment.significant_treatments && treatment.significant_treatments.length > 0 && (
                           <div>
-                            <h4 className="font-semibold text-gray-900 mb-3">Significant Treatments</h4>
+                            <h4 className="font-semibold text-gray-900 mb-3">Significant Citation Risks</h4>
                             <div className="space-y-3">
                               {treatment.significant_treatments.map((sig, index) => (
                                 <div key={index} className="border rounded-lg p-4 hover:shadow-md transition">

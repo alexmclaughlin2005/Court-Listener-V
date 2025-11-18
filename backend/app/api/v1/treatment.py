@@ -1,5 +1,5 @@
 """
-Treatment API - Citation treatment detection endpoints
+Citation Risk API - Citation risk detection endpoints
 """
 from fastapi import APIRouter, HTTPException, Depends, Query
 from sqlalchemy.orm import Session
@@ -22,14 +22,14 @@ async def get_treatment(
     use_cache: bool = Query(True, description="Use cached results if available")
 ):
     """
-    Get treatment analysis for an opinion
+    Get citation risk analysis for an opinion
 
     Returns:
-        - Overall treatment status (OVERRULED, AFFIRMED, etc.)
+        - Overall citation risk status (OVERRULED, AFFIRMED, etc.)
         - Severity (NEGATIVE, POSITIVE, NEUTRAL)
         - Confidence score
-        - Count breakdown by treatment type
-        - Significant treatment examples
+        - Count breakdown by risk type
+        - Significant citation risk examples
     """
     # Check if opinion exists
     opinion = db.query(Opinion).filter(Opinion.id == opinion_id).first()
@@ -88,7 +88,7 @@ async def get_treatment(
                 "neutral": 0,
                 "total": 0
             },
-            "message": "No parentheticals found for this opinion",
+            "message": "No citation risk data found for this opinion",
             "from_cache": False
         }
 
@@ -155,10 +155,10 @@ async def get_treatment_history(
     limit: int = Query(50, le=200, description="Maximum number of results")
 ):
     """
-    Get chronological treatment history for an opinion
+    Get chronological citation risk history for an opinion
 
     Returns all parentheticals describing this opinion with their
-    classifications, ordered by the date of the describing opinion.
+    risk classifications, ordered by the date of the describing opinion.
     """
     # Check if opinion exists
     opinion = db.query(Opinion).filter(Opinion.id == opinion_id).first()
@@ -213,7 +213,7 @@ async def analyze_treatment(
     db: Session = Depends(get_db)
 ):
     """
-    Force fresh analysis of treatment (bypasses cache)
+    Force fresh citation risk analysis (bypasses cache)
 
     Use this to trigger re-analysis when new parentheticals are added.
     """
@@ -229,7 +229,7 @@ async def batch_analyze(
     """
     Batch analyze multiple opinions
 
-    Returns treatment summaries for all requested opinions.
+    Returns citation risk summaries for all requested opinions.
     """
     if len(opinion_ids) > 100:
         raise HTTPException(
@@ -260,7 +260,7 @@ async def get_treatment_stats(
     db: Session = Depends(get_db)
 ):
     """
-    Get overall statistics about treatments in the database
+    Get overall statistics about citation risks in the database
     """
     # Count treatments by type
     total_cached = db.query(CitationTreatment).count()

@@ -376,10 +376,10 @@ export const citationAPI = {
   },
 };
 
-// Treatment API
+// Citation Risk API
 export const treatmentAPI = {
   /**
-   * Get treatment analysis for an opinion
+   * Get citation risk analysis for an opinion
    */
   getTreatment(opinionId: number, useCache: boolean = true): Promise<TreatmentSummary> {
     const queryParams = new URLSearchParams();
@@ -388,7 +388,7 @@ export const treatmentAPI = {
   },
 
   /**
-   * Get treatment history for an opinion
+   * Get citation risk history for an opinion
    */
   getHistory(opinionId: number, limit: number = 50): Promise<TreatmentHistory> {
     const queryParams = new URLSearchParams();
@@ -397,7 +397,7 @@ export const treatmentAPI = {
   },
 
   /**
-   * Force fresh treatment analysis (bypass cache)
+   * Force fresh citation risk analysis (bypass cache)
    */
   analyzeTreatment(opinionId: number): Promise<TreatmentSummary> {
     return apiClient.post<TreatmentSummary>(`/api/v1/treatment/analyze/${opinionId}`);
@@ -416,7 +416,7 @@ export const treatmentAPI = {
   },
 
   /**
-   * Get treatment statistics
+   * Get citation risk statistics
    */
   getStats(): Promise<{
     total_analyzed: number;

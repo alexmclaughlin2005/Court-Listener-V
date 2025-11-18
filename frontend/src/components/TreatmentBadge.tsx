@@ -1,7 +1,7 @@
 /**
- * TreatmentBadge - Visual indicator for citation treatment status
+ * TreatmentBadge - Visual indicator for citation risk status
  *
- * Displays treatment type with appropriate color coding:
+ * Displays citation risk level with appropriate color coding:
  * - Red (Negative): Overruled, Reversed, Questioned, etc.
  * - Green (Positive): Affirmed, Followed, etc.
  * - Gray (Neutral): Distinguished, Cited, etc.
@@ -86,7 +86,7 @@ const TREATMENT_CONFIG: Record<TreatmentType, {
   UNKNOWN: {
     label: 'Unknown',
     icon: '❓',
-    description: 'Treatment status unknown'
+    description: 'Citation risk status unknown'
   }
 };
 

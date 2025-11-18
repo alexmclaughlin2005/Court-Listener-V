@@ -1,10 +1,10 @@
 /**
- * TreatmentSummary - Detailed treatment analysis panel
+ * TreatmentSummary - Detailed citation risk analysis panel
  *
- * Displays comprehensive treatment information including:
- * - Overall treatment status
- * - Breakdown by treatment type
- * - Significant treatment examples with links
+ * Displays comprehensive citation risk information including:
+ * - Overall citation risk status
+ * - Breakdown by risk type
+ * - Significant citation risk examples with links
  * - Confidence indicators
  */
 import React, { useEffect, useState } from 'react';
@@ -34,8 +34,8 @@ export const TreatmentSummary: React.FC<TreatmentSummaryProps> = ({
         const data = await treatmentAPI.getTreatment(opinionId);
         setTreatment(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load treatment data');
-        console.error('Error fetching treatment:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load citation risk data');
+        console.error('Error fetching citation risk:', err);
       } finally {
         setLoading(false);
       }
@@ -60,7 +60,7 @@ export const TreatmentSummary: React.FC<TreatmentSummaryProps> = ({
     return (
       <div className={`bg-white rounded-lg shadow-md p-6 ${className}`}>
         <div className="text-red-600">
-          <p className="font-semibold">Error loading treatment data</p>
+          <p className="font-semibold">Error loading citation risk data</p>
           <p className="text-sm mt-1">{error}</p>
         </div>
       </div>
@@ -77,16 +77,16 @@ export const TreatmentSummary: React.FC<TreatmentSummaryProps> = ({
     <div className={`bg-white rounded-lg shadow-md ${className}`}>
       {/* Header */}
       <div className="px-6 py-4 border-b border-gray-200">
-        <h3 className="text-lg font-semibold text-gray-900">Citation Treatment</h3>
+        <h3 className="text-lg font-semibold text-gray-900">Citation Risk</h3>
       </div>
 
       {/* Content */}
       <div className="p-6">
         {!hasTreatments ? (
           <div className="text-gray-600 text-center py-8">
-            <p>No treatment information available for this case.</p>
+            <p>No citation risk information available for this case.</p>
             <p className="text-sm mt-2">
-              This case has not been cited in a way that indicates specific treatment.
+              This case has not been cited in a way that indicates specific citation risk.
             </p>
           </div>
         ) : (
@@ -109,7 +109,7 @@ export const TreatmentSummary: React.FC<TreatmentSummaryProps> = ({
 
             {/* Treatment Breakdown */}
             <div className="mb-6">
-              <h4 className="text-sm font-medium text-gray-700 mb-3">Treatment Breakdown</h4>
+              <h4 className="text-sm font-medium text-gray-700 mb-3">Citation Risk Breakdown</h4>
               <div className="grid grid-cols-3 gap-4">
                 <div className="bg-red-50 rounded-lg p-4">
                   <div className="text-2xl font-bold text-red-700">
@@ -136,7 +136,7 @@ export const TreatmentSummary: React.FC<TreatmentSummaryProps> = ({
             {treatment.significant_treatments && treatment.significant_treatments.length > 0 && (
               <div>
                 <h4 className="text-sm font-medium text-gray-700 mb-3">
-                  Significant Treatments
+                  Significant Citation Risks
                 </h4>
                 <div className="space-y-3">
                   {treatment.significant_treatments.map((sig, index) => (
@@ -189,7 +189,7 @@ export const TreatmentSummary: React.FC<TreatmentSummaryProps> = ({
                   href={`/cases/${opinionId}/treatment-history`}
                   className="text-blue-600 hover:text-blue-800 font-medium text-sm"
                 >
-                  View Full Treatment History →
+                  View Full Citation Risk History →
                 </a>
               </div>
             )}

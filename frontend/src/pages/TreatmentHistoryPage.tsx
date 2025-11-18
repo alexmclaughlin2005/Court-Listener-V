@@ -1,8 +1,8 @@
 /**
- * TreatmentHistoryPage - Detailed treatment history for a case
+ * TreatmentHistoryPage - Detailed citation risk history for a case
  *
- * Shows chronological timeline of all treatments (parentheticals)
- * for a specific opinion, grouped and filterable by treatment type.
+ * Shows chronological timeline of all citation risks (parentheticals)
+ * for a specific opinion, grouped and filterable by risk type.
  */
 import { useState, useEffect } from 'react';
 import { useParams, Link } from 'react-router-dom';
@@ -26,8 +26,8 @@ export default function TreatmentHistoryPage() {
         const data = await treatmentAPI.getHistory(opinionId, 200);
         setHistory(data);
       } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to load treatment history');
-        console.error('Error fetching history:', err);
+        setError(err instanceof Error ? err.message : 'Failed to load citation risk history');
+        console.error('Error fetching citation risk history:', err);
       } finally {
         setLoading(false);
       }
@@ -44,7 +44,7 @@ export default function TreatmentHistoryPage() {
         <div className="container mx-auto px-4 py-8">
           <div className="text-center py-12">
             <div className="inline-block animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600"></div>
-            <p className="mt-4 text-gray-600">Loading treatment history...</p>
+            <p className="mt-4 text-gray-600">Loading citation risk history...</p>
           </div>
         </div>
       </div>
@@ -61,7 +61,7 @@ export default function TreatmentHistoryPage() {
             </Link>
           </div>
           <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-            <p className="text-red-800">{error || 'Treatment history not found'}</p>
+            <p className="text-red-800">{error || 'Citation risk history not found'}</p>
           </div>
         </div>
       </div>
@@ -94,10 +94,10 @@ export default function TreatmentHistoryPage() {
         {/* Header */}
         <div className="bg-white rounded-lg shadow-md p-6 mb-6">
           <h1 className="text-2xl font-bold text-gray-900 mb-4">
-            Treatment History
+            Citation Risk History
           </h1>
           <p className="text-gray-600">
-            Showing {filteredHistory.length} of {history.total_treatments} treatments for Opinion {opinionId}
+            Showing {filteredHistory.length} of {history.total_treatments} citation risks for Opinion {opinionId}
           </p>
 
           {/* Stats Summary */}
@@ -169,7 +169,7 @@ export default function TreatmentHistoryPage() {
         <div className="space-y-4">
           {filteredHistory.length === 0 ? (
             <div className="bg-white rounded-lg shadow-md p-8 text-center text-gray-500">
-              No {filter !== 'all' ? filter : ''} treatments found
+              No {filter !== 'all' ? filter : ''} citation risks found
             </div>
           ) : (
             filteredHistory.map((item, index) => (
@@ -245,8 +245,8 @@ export default function TreatmentHistoryPage() {
         {history.total_treatments > 200 && (
           <div className="mt-6 bg-blue-50 border border-blue-200 rounded-lg p-4 text-center">
             <p className="text-blue-800">
-              Showing the most recent 200 treatments.
-              Total treatments available: {history.total_treatments}
+              Showing the most recent 200 citation risks.
+              Total citation risks available: {history.total_treatments}
             </p>
           </div>
         )}
