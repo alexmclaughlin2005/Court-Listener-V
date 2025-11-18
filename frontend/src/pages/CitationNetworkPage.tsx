@@ -100,7 +100,6 @@ export default function CitationNetworkPage() {
   const [depth, setDepth] = useState(1)
   const [maxNodes, setMaxNodes] = useState(50)
   const cyRef = useRef<cytoscape.Core | null>(null)
-  const containerRef = useRef<HTMLDivElement | null>(null)
 
   // Deep analysis state
   const [deepAnalysis, setDeepAnalysis] = useState<any>(null)
@@ -252,28 +251,24 @@ export default function CitationNetworkPage() {
     }
   }, [])
 
-  // Initialize Cytoscape with proper cleanup
-  useEffect(() => {
-    // Wait for next tick to ensure container is in DOM
-    const timeoutId = setTimeout(() => {
-      if (!containerRef.current || cytoscapeElements.length === 0) {
-        console.log('Skipping Cytoscape init: container=', !!containerRef.current, 'elements=', cytoscapeElements.length)
-        return
-      }
+  // Callback ref to initialize Cytoscape when container is mounted
+  const initCytoscape = useCallback((container: HTMLDivElement | null) => {
+    console.log('initCytoscape called:', { container: !!container, elements: cytoscapeElements.length, currentInstance: !!cyRef.current })
 
+    // Clean up existing instance
+    if (cyRef.current) {
+      console.log('Destroying existing Cytoscape instance')
+      cyRef.current.destroy()
+      cyRef.current = null
+    }
+
+    // Initialize new instance if we have both container and elements
+    if (container && cytoscapeElements.length > 0) {
       console.log('Initializing Cytoscape with', cytoscapeElements.length, 'elements')
 
-      // Destroy existing instance
-      if (cyRef.current) {
-        console.log('Destroying existing Cytoscape instance')
-        cyRef.current.destroy()
-        cyRef.current = null
-      }
-
       try {
-        // Create new instance
         const cy = cytoscape({
-          container: containerRef.current,
+          container: container,
           elements: cytoscapeElements,
           style: getCytoscapeStylesheet(),
           layout: {
@@ -304,18 +299,21 @@ export default function CitationNetworkPage() {
       } catch (error) {
         console.error('Error creating Cytoscape instance:', error)
       }
-    }, 0)
+    } else {
+      console.log('Skipping initialization:', { hasContainer: !!container, elementCount: cytoscapeElements.length })
+    }
+  }, [cytoscapeElements, handleNodeClick])
 
-    // Cleanup function
+  // Cleanup on unmount
+  useEffect(() => {
     return () => {
-      clearTimeout(timeoutId)
-      console.log('Cleaning up Cytoscape instance')
+      console.log('Component unmounting, cleaning up Cytoscape')
       if (cyRef.current) {
         cyRef.current.destroy()
         cyRef.current = null
       }
     }
-  }, [cytoscapeElements, handleNodeClick])
+  }, [])
 
   if (loading) {
     return (
@@ -465,7 +463,7 @@ export default function CitationNetworkPage() {
         <div className="bg-white rounded-lg shadow" style={{ height: '600px' }}>
           {!loading && networkData && networkData.nodes && networkData.nodes.length > 0 && cytoscapeElements.length > 0 ? (
             <div
-              ref={containerRef}
+              ref={initCytoscape}
               style={{ width: '100%', height: '100%' }}
             />
           ) : (
