@@ -167,38 +167,36 @@ export default function CitationNetworkPage() {
     const elements: cytoscape.ElementDefinition[] = []
     const nodeIds = new Set<string>()
 
-    // Check if nodes exist and is an object
-    if (!networkData.nodes || typeof networkData.nodes !== 'object') {
-      console.error('Invalid nodes structure:', networkData.nodes)
+    // Check if nodes exist and is an array
+    if (!networkData.nodes || !Array.isArray(networkData.nodes)) {
+      console.error('Invalid nodes structure (expected array):', networkData.nodes)
       return []
     }
 
-    // Add nodes
-    Object.entries(networkData.nodes).forEach(([layerKey, nodesArray]) => {
-      console.log(`Processing layer ${layerKey}:`, nodesArray)
+    // Add nodes - networkData.nodes is a flat array
+    networkData.nodes.forEach((node) => {
+      const nodeType = node.opinion_id === Number(opinionId)
+        ? 'center'
+        : node.node_type === 'citing'
+          ? 'inbound'
+          : 'outbound'
 
-      if (Array.isArray(nodesArray)) {
-        nodesArray.forEach((node) => {
-          const nodeType = node.opinion_id === Number(opinionId) ? 'center' : layerKey.startsWith('inbound') ? 'inbound' : 'outbound'
-          const nodeIdStr = node.opinion_id.toString()
+      const nodeIdStr = node.opinion_id.toString()
+      nodeIds.add(nodeIdStr)
 
-          nodeIds.add(nodeIdStr)
-
-          elements.push({
-            data: {
-              id: nodeIdStr,
-              label: node.case_name_short || node.case_name || 'Unknown Case',
-              nodeType,
-              treatment: node.treatment?.type || null,
-              clusterId: node.cluster_id,
-              opinionId: node.opinion_id,
-            },
-          })
-        })
-      } else {
-        console.warn(`Layer ${layerKey} is not an array:`, nodesArray)
-      }
+      elements.push({
+        data: {
+          id: nodeIdStr,
+          label: node.case_name_short || node.case_name || 'Unknown Case',
+          nodeType,
+          treatment: node.treatment?.type || null,
+          clusterId: node.cluster_id,
+          opinionId: node.opinion_id,
+        },
+      })
     })
+
+    console.log(`Processed ${networkData.nodes.length} nodes`)
 
     // Add edges - only if both source and target nodes exist
     if (networkData.edges) {
@@ -269,7 +267,7 @@ export default function CitationNetworkPage() {
     )
   }
 
-  const totalNodes = Object.values(networkData.nodes).reduce((sum, layer) => sum + (Array.isArray(layer) ? layer.length : 0), 0)
+  const totalNodes = networkData.nodes?.length || 0
   const totalEdges = networkData.edges?.length || 0
 
   return (
