@@ -37,26 +37,22 @@ def run_migration():
         conn.autocommit = False
         cursor = conn.cursor()
 
-        # Split by semicolon and execute each statement
-        statements = [s.strip() for s in migration_sql.split(';') if s.strip() and not s.strip().startswith('--')]
+        # Execute entire SQL at once (let PostgreSQL handle statement ordering)
+        print(f"\nExecuting migration SQL...")
+        cursor.execute(migration_sql)
 
-        for statement in statements:
-            if statement:
-                # Print abbreviated version for long statements
-                display = statement[:200] + "..." if len(statement) > 200 else statement
-                print(f"\nExecuting: {display}")
-
-                cursor.execute(statement)
-
-                # If it's a SELECT, print results
-                if statement.upper().startswith('SELECT'):
-                    rows = cursor.fetchall()
-                    if rows:
-                        print(f"  Found {len(rows)} results:")
-                        for row in rows[:10]:  # Limit to first 10 rows
-                            print(f"    {row}")
-                        if len(rows) > 10:
-                            print(f"    ... and {len(rows) - 10} more")
+        # Fetch any SELECT results
+        try:
+            rows = cursor.fetchall()
+            if rows:
+                print(f"\n  Verification Results:")
+                for row in rows[:20]:  # Show up to 20 rows
+                    print(f"    {row}")
+                if len(rows) > 20:
+                    print(f"    ... and {len(rows) - 20} more")
+        except psycopg2.ProgrammingError:
+            # No results to fetch (normal for CREATE/ALTER statements)
+            pass
 
         conn.commit()
         cursor.close()
