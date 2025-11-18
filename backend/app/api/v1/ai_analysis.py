@@ -6,6 +6,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import Optional
 import json
+import asyncio
 
 from app.core.database import get_db
 from app.models import Opinion, OpinionCluster, CitationTreatment, Parenthetical
@@ -149,6 +150,7 @@ async def analyze_opinion_risk(
             "citing_cases_count": len(citing_cases)
         }
         yield f"data: {json.dumps(initial_data)}\n\n"
+        await asyncio.sleep(0)  # Force flush
 
         # Stream text chunks
         for chunk in stream_generator:
@@ -158,6 +160,7 @@ async def analyze_opinion_risk(
             else:
                 # Text chunk
                 yield f"data: {json.dumps({'type': 'text', 'content': chunk})}\n\n"
+            await asyncio.sleep(0)  # Force flush after each chunk
 
         # Send done signal
         yield f"data: {json.dumps({'type': 'done'})}\n\n"

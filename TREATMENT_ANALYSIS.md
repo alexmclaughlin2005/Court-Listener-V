@@ -389,15 +389,235 @@ This ensures treatments are always available when viewing cases in the UI, even 
 - Alert when cases receive negative treatment
 - Track citation patterns over time
 
-## Future Enhancements
+## AI-Powered Risk Analysis
 
-### Planned Features
-- [ ] Natural language explanations of treatment
-- [ ] Treatment timeline visualization
-- [ ] Treatment alert system
+### Overview
+
+For cases with **NEGATIVE** severity (overruled, questioned, criticized, etc.), the system provides AI-powered explanations using Anthropic's Claude models. This feature helps legal professionals understand:
+
+- Why the case is at citation risk
+- What legal theories and doctrines might be affected
+- The connection between the cited case and cases citing it negatively
+- Practical implications for legal practice
+
+### Two-Tier Analysis System
+
+The system uses a two-tier approach to balance speed and depth:
+
+#### Quick Analysis (Claude 3.5 Haiku)
+- **Automatic**: Runs automatically when viewing a case with negative citations
+- **Speed**: 2-5 seconds
+- **Model**: `claude-3-5-haiku-20241022`
+- **Token Limit**: 1,000 tokens
+- **Format**: 2-3 paragraph concise summary
+- **Use Case**: Instant preview of citation risk
+
+**What you get:**
+1. Brief explanation of why the case is at risk
+2. Key legal theories or doctrines affected
+3. Practical implications summary
+
+#### Deep Analysis (Claude Sonnet 4.5)
+- **Manual**: Triggered by clicking "Get Deep Analysis" button
+- **Speed**: 10-30 seconds
+- **Model**: `claude-sonnet-4-5-20250929`
+- **Token Limit**: 2,000 tokens
+- **Format**: Comprehensive multi-section analysis
+- **Use Case**: Detailed research and understanding
+
+**What you get:**
+1. **Risk Overview**: Detailed explanation of the citation risk
+2. **Legal Theory Impact**: Analysis of affected doctrines, tests, and principles
+3. **Connection to Citing Cases**: Why subsequent courts took issue with this case
+4. **Practical Implications**: Guidance for citing this case in legal work
+
+### Streaming Interface
+
+The AI analysis uses **real-time streaming** for a better user experience:
+
+- Text appears word-by-word as Claude generates it
+- No waiting for the full response to complete
+- Similar to ChatGPT/Claude web interface
+- Console logs available for debugging (see browser DevTools)
+
+### API Endpoints
+
+#### Stream AI Analysis
+```
+POST /api/v1/ai-analysis/{opinion_id}?quick=true/false
+```
+
+Streams AI analysis using Server-Sent Events (SSE).
+
+**Parameters:**
+- `opinion_id` (path) - Opinion ID to analyze
+- `quick` (query) - If `true`, uses Haiku for quick analysis. If `false`, uses Sonnet 4.5 for deep analysis.
+
+**Response Format:** Server-Sent Events (text/event-stream)
+
+**Event Types:**
+```
+data: {"type": "start", "opinion_id": 100343, "case_name": "Mahler v. Eby", ...}
+data: {"type": "text", "content": "Based"}
+data: {"type": "text", "content": " on the analysis"}
+data: {"type": "text", "content": ", here's"}
+...
+data: {"type": "metadata", "model": "claude-3.5-haiku", "usage": {...}}
+data: {"type": "done"}
+```
+
+**Example (curl):**
+```bash
+# Quick analysis with Haiku
+curl -N -X POST "https://api.example.com/api/v1/ai-analysis/100343?quick=true"
+
+# Deep analysis with Sonnet 4.5
+curl -N -X POST "https://api.example.com/api/v1/ai-analysis/100343?quick=false"
+```
+
+#### Check AI Availability
+```
+GET /api/v1/ai-analysis/status
+```
+
+Returns whether AI analysis is available (requires `ANTHROPIC_API_KEY`).
+
+**Response:**
+```json
+{
+  "available": true,
+  "model": "claude-sonnet-4.5",
+  "message": "AI analysis ready"
+}
+```
+
+### Frontend Integration
+
+The AI analysis component automatically appears on cases with **NEGATIVE** severity:
+
+**Features:**
+- Auto-triggers quick analysis on page load
+- Shows streaming text as it arrives
+- Displays model attribution (Haiku 3.5 or Sonnet 4.5)
+- "Get Deep Analysis" button for comprehensive insights
+- Expandable/collapsible results
+- Loading states with time estimates
+- Error handling with retry option
+
+**Component:** `frontend/src/components/AIRiskAnalysis.tsx`
+
+### Technical Implementation
+
+#### Backend Architecture
+- **Service**: `backend/app/services/ai_risk_analyzer.py`
+  - Uses Anthropic's streaming API (`messages.stream()`)
+  - Python generators yield chunks in real-time
+  - Truncates opinion text to ~150k chars (~37.5k tokens)
+  - Returns token usage statistics
+
+- **API**: `backend/app/api/v1/ai_analysis.py`
+  - FastAPI `StreamingResponse` for SSE
+  - Server-Sent Events format
+  - Headers: `Cache-Control: no-cache`, `X-Accel-Buffering: no`
+
+#### Frontend Architecture
+- **API Client**: `frontend/src/lib/api.ts`
+  - Fetch API with `ReadableStream`
+  - Callback-based interface: `onChunk`, `onComplete`, `onError`
+  - SSE line buffering to handle incomplete chunks
+
+- **Component**: `frontend/src/components/AIRiskAnalysis.tsx`
+  - React hooks: `useState`, `useEffect`, `useRef`
+  - `flushSync()` to bypass React 18 batching for real-time updates
+  - Console logging for debugging
+
+### Prompt Engineering
+
+The prompts are tailored for each analysis type:
+
+**Quick Analysis Prompt (Haiku):**
+- Shorter, focused prompt (2-3 paragraphs)
+- Key questions: Why at risk? Legal theories affected? Practical implications?
+- Optimized for speed and conciseness
+
+**Deep Analysis Prompt (Sonnet 4.5):**
+- Comprehensive, structured prompt (4 sections)
+- Sections: Risk Overview, Legal Theory Impact, Connection to Citing Cases, Practical Implications
+- Optimized for depth and professional format
+
+### Requirements
+
+**Environment Variables:**
+- `ANTHROPIC_API_KEY` - Required for AI analysis (get from https://console.anthropic.com/)
+
+**Dependencies:**
+- Backend: `anthropic==0.40.0` (Python SDK)
+- Frontend: React 18+ (for `flushSync`)
+
+### Cost and Performance
+
+**Quick Analysis (Haiku):**
+- Cost: ~$0.0003 per analysis (typical)
+- Speed: 2-5 seconds
+- Input: ~10-50k tokens (opinion + context)
+- Output: ~200-500 tokens
+
+**Deep Analysis (Sonnet 4.5):**
+- Cost: ~$0.015 per analysis (typical)
+- Speed: 10-30 seconds
+- Input: ~10-50k tokens (opinion + context)
+- Output: ~500-1500 tokens
+
+**Note**: Costs vary based on opinion length. Long opinions use truncated text (~150k chars).
+
+### Use Cases
+
+**Legal Research:**
+- Quickly understand why a case is "bad law"
+- Identify specific holdings that are at risk
+- Determine if case is safe to cite for certain propositions
+
+**Case Law Monitoring:**
+- Get instant explanations when cases receive negative treatment
+- Track which legal doctrines are being questioned
+- Monitor citation patterns for important precedents
+
+**Brief Writing:**
+- Understand citation risks before citing a case
+- Identify safe vs. risky aspects of a case
+- Get guidance on alternative precedents
+
+### Limitations
+
+**Scope:**
+- Only available for cases with NEGATIVE severity
+- Requires opinion text to be available
+- Limited to opinions with negative citations
+
+**Accuracy:**
+- AI analysis should be used as a research aid
+- Always verify independently with primary sources
+- AI may miss nuances or make errors
+- Review the evidence-based treatment classification alongside AI insights
+
+**Technical:**
+- Requires internet connection to Anthropic API
+- Subject to API rate limits
+- Costs apply per analysis (cached results free)
+
+### Future Enhancements
+
+**Planned Features:**
+- [ ] ✅ AI-powered natural language explanations of treatment *(Completed Nov 2025)*
+- [ ] ✅ Real-time streaming interface *(Completed Nov 2025)*
+- [ ] AI analysis for POSITIVE and NEUTRAL cases
+- [ ] Comparison analysis (compare multiple cases)
+- [ ] Treatment timeline visualization with AI summaries
+- [ ] Treatment alert system with AI-generated notifications
 - [ ] ML-based classification for improved accuracy
 - [ ] Jurisdiction-specific treatment rules
 - [ ] Treatment impact scoring (weighted by citing court authority)
+- [ ] Citation recommendation engine
 
 ### Optimization Opportunities
 - [ ] Incremental analysis (only analyze new parentheticals)

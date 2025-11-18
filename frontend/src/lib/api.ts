@@ -480,7 +480,12 @@ export const aiAnalysisAPI = {
       while (true) {
         const { done, value } = await reader.read();
 
-        if (done) break;
+        if (done) {
+          console.log('[SSE] Stream done');
+          break;
+        }
+
+        console.log('[SSE] Received chunk, size:', value.length, 'bytes');
 
         // Decode chunk and add to buffer
         buffer += decoder.decode(value, { stream: true });
@@ -489,12 +494,15 @@ export const aiAnalysisAPI = {
         const lines = buffer.split('\n');
         buffer = lines.pop() || ''; // Keep last incomplete line in buffer
 
+        console.log('[SSE] Parsed', lines.length, 'lines from buffer');
+
         for (const line of lines) {
           if (line.startsWith('data: ')) {
             try {
               const data = JSON.parse(line.slice(6));
 
               if (data.type === 'text') {
+                console.log('[SSE] Text chunk:', data.content.substring(0, 20));
                 onChunk(data.content);
               } else if (data.type === 'metadata') {
                 onComplete({ model: data.model, usage: data.usage });
@@ -502,6 +510,7 @@ export const aiAnalysisAPI = {
                 onError(data.error);
               } else if (data.type === 'done') {
                 // Stream complete
+                console.log('[SSE] Done signal received');
                 return;
               }
             } catch (e) {

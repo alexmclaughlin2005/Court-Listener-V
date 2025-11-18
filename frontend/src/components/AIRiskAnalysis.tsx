@@ -55,7 +55,8 @@ export const AIRiskAnalysis: React.FC<AIRiskAnalysisProps> = ({
         true, // quick=true
         (chunk) => {
           // Append each chunk as it arrives
-          console.log('[Quick Analysis] Chunk:', chunk);
+          const timestamp = new Date().toISOString();
+          console.log(`[${timestamp}] [Quick Analysis] Chunk:`, chunk);
           quickTextRef.current += chunk;
           // Force immediate render (bypass React 18 batching)
           flushSync(() => {
