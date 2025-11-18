@@ -208,30 +208,40 @@ class CitationQualityAnalyzer:
                     for ex in examples:
                         evidence_text += f"- {ex.get('text', '')}\n"
 
-        prompt = f"""Analyze this legal case citation for quality and reliability:
+        prompt = f"""You are a legal research assistant analyzing citation quality. Evaluate this case for precedential reliability.
 
+=== CASE METADATA ===
 Case: {case_metadata['case_name']}
 Court: {case_metadata['court_name']}
 Date Filed: {case_metadata['date_filed'] or 'Unknown'}
-Citation Count: {case_metadata['citation_count']}
+Times Cited: {case_metadata['citation_count']}
 
 === FULL OPINION TEXT ===
 {opinion_text}
 === END OPINION TEXT ===
 
-Treatment Status: {treatment_context['treatment_type']} ({treatment_context['severity']})
-- Negative Treatments: {treatment_context['negative_count']}
-- Positive Treatments: {treatment_context['positive_count']}
-- Neutral Treatments: {treatment_context['neutral_count']}
-- Treatment Confidence: {treatment_context['confidence']:.2f}{evidence_text}
+=== SUBSEQUENT TREATMENT DATA ===
+Treatment Type: {treatment_context['treatment_type']} ({treatment_context['severity']})
+Negative Citations: {treatment_context['negative_count']}
+Positive Citations: {treatment_context['positive_count']}
+Neutral Citations: {treatment_context['neutral_count']}
+Treatment Confidence: {treatment_context['confidence']:.2f}{evidence_text}
 
-Context: This case is being cited by another case. We need to determine if it is safe to rely upon as legal precedent.
+=== YOUR TASK ===
+Analyze this opinion's precedential reliability by examining:
 
-Task: Determine if this case is safe to rely upon as legal precedent.
+1. **Holding & Reasoning**: Is the legal holding clear? Is reasoning sound and well-supported?
+2. **Overruling Language**: Does the opinion text explicitly state it is overruling, reversing, or vacating prior precedent? Look for phrases like "overruled," "reversed," "vacated," "no longer good law."
+3. **Superseding Events**: Does the opinion mention being superseded by statute, constitutional amendment, or en banc rehearing?
+4. **Procedural Posture**: What was the outcome? (e.g., affirmed, reversed, remanded, dismissed)
+5. **Dictum vs. Holding**: Is the key legal point part of the holding or merely dicta?
+6. **Treatment Context**: Given the treatment data above, has this case been negatively treated by later courts?
+7. **Citation Value**: Based on citation count and court authority, is this influential precedent?
 
-IMPORTANT: Respond ONLY with valid JSON. Do not include any explanatory text before or after the JSON.
+CRITICAL: If treatment data shows "UNKNOWN" or 0 treatments, this means we have NO information about how later courts treated this case. This creates uncertainty about current precedential status, especially for older cases.
 
-Respond in this exact JSON format:
+Return ONLY valid JSON (no explanatory text):
+
 {{
   "quality_assessment": "GOOD" | "QUESTIONABLE" | "OVERRULED" | "SUPERSEDED" | "UNCERTAIN",
   "confidence": 0.0-1.0,
@@ -239,22 +249,22 @@ Respond in this exact JSON format:
   "is_questioned": boolean,
   "is_criticized": boolean,
   "risk_score": 0-100,
-  "summary": "2-3 sentence explanation of why this assessment was made"
+  "summary": "2-3 sentence explanation focusing on specific findings from the opinion text and treatment data"
 }}
 
-Quality Assessment Categories:
-- GOOD: Safe to cite, no negative treatment, sound legal reasoning
-- QUESTIONABLE: Has some criticism, questioning, or weakened authority
-- OVERRULED: Explicitly overruled, reversed, or vacated
-- SUPERSEDED: Replaced by statute, constitutional amendment, or newer precedent
-- UNCERTAIN: Insufficient information or unclear precedential status
+**Assessment Categories:**
+- **GOOD**: Clear holding, sound reasoning, no negative treatment, currently good law
+- **QUESTIONABLE**: Weakened by criticism, questioning, or partially limited by later cases
+- **OVERRULED**: Explicitly overruled, reversed, or vacated by this or later opinions
+- **SUPERSEDED**: Replaced by statute, constitutional amendment, or en banc decision
+- **UNCERTAIN**: Unknown treatment status OR unclear precedential reliability (use for old cases with 0 recorded treatments)
 
-Risk Score Guidelines:
-- 0-20: Very low risk, strong precedent
-- 21-40: Low risk, generally reliable
-- 41-60: Moderate risk, use with caution
-- 61-80: High risk, significant issues
-- 81-100: Very high risk, likely overruled or superseded"""
+**Risk Score:**
+- 0-30: Strong precedent, safe to cite
+- 31-50: Generally reliable but verify currency
+- 51-70: Moderate concerns, cite with caution and explanation
+- 71-90: Significant issues, avoid primary reliance
+- 91-100: Overruled or superseded, do not cite as good law"""
 
         return prompt
 
