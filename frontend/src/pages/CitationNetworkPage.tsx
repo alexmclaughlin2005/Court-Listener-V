@@ -429,24 +429,24 @@ export default function CitationNetworkPage() {
           </div>
 
           {/* Risk Assessment */}
-          {deepAnalysis && (
+          {deepAnalysis && deepAnalysis.risk_assessment && (
             <div className="mt-6 pt-6 border-t">
               <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-700">Citation Risk:</span>
                 <TreatmentBadge
                   treatment={{
-                    type: deepAnalysis.risk_assessment.level,
-                    severity: deepAnalysis.risk_assessment.level.toLowerCase(),
-                    confidence: deepAnalysis.risk_assessment.score / 100,
+                    type: deepAnalysis.risk_assessment.level || 'UNKNOWN',
+                    severity: (deepAnalysis.risk_assessment.level || 'UNKNOWN').toLowerCase(),
+                    confidence: (deepAnalysis.risk_assessment.score || 0) / 100,
                   }}
                   size="md"
                   showConfidence={true}
                 />
                 <span className="text-sm text-gray-600">
-                  {deepAnalysis.negative_treatment_count} of {deepAnalysis.total_cases_analyzed} cases have negative treatment
+                  {deepAnalysis.negative_treatment_count || 0} of {deepAnalysis.total_cases_analyzed || 0} cases have negative treatment
                 </span>
                 <span className="text-sm text-gray-600">
-                  Score: {deepAnalysis.risk_assessment.score}/100
+                  Score: {deepAnalysis.risk_assessment.score || 0}/100
                 </span>
                 <button
                   onClick={() => setShowMethodology(true)}
@@ -500,7 +500,7 @@ export default function CitationNetworkPage() {
         </div>
 
         {/* Deep Analysis Details */}
-        {showDeepAnalysis && deepAnalysis && (
+        {showDeepAnalysis && deepAnalysis && deepAnalysis.risk_assessment && (
           <div className="mt-6 bg-white rounded-lg shadow p-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Deep Citation Risk Analysis</h2>
 
@@ -562,14 +562,18 @@ export default function CitationNetworkPage() {
                 <p className="text-gray-700 mb-2">
                   <span className="font-semibold">Confidence:</span> {(deepAnalysis.risk_assessment.confidence * 100).toFixed(1)}%
                 </p>
-                <p className="text-gray-700">
-                  <span className="font-semibold">Factors:</span>
-                </p>
-                <ul className="list-disc list-inside ml-4 mt-2 text-gray-600">
-                  {deepAnalysis.risk_assessment.factors.map((factor: string, idx: number) => (
-                    <li key={idx}>{factor}</li>
-                  ))}
-                </ul>
+                {deepAnalysis.risk_assessment.factors && deepAnalysis.risk_assessment.factors.length > 0 && (
+                  <>
+                    <p className="text-gray-700">
+                      <span className="font-semibold">Factors:</span>
+                    </p>
+                    <ul className="list-disc list-inside ml-4 mt-2 text-gray-600">
+                      {deepAnalysis.risk_assessment.factors.map((factor: string, idx: number) => (
+                        <li key={idx}>{factor}</li>
+                      ))}
+                    </ul>
+                  </>
+                )}
               </div>
             </div>
 
