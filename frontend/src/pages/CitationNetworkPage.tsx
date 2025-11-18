@@ -460,18 +460,46 @@ export default function CitationNetworkPage() {
           )}
 
           {/* Legend */}
-          <div className="mt-4 pt-4 border-t flex flex-wrap gap-4 text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ background: '#3b82f6' }}></div>
-              <span>Center Case</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ background: '#f59e0b' }}></div>
-              <span>Cases Cited (Outbound)</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 rounded" style={{ background: '#10b981' }}></div>
-              <span>Cases Citing (Inbound)</span>
+          <div className="mt-4 pt-4 border-t">
+            <h3 className="text-sm font-semibold text-gray-700 mb-3">How to Read the Network:</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+              {/* Node Colors */}
+              <div>
+                <p className="font-medium text-gray-700 mb-2">Node Colors:</p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded" style={{ background: '#3b82f6' }}></div>
+                    <span>Center Case (the case you're viewing)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded" style={{ background: '#f59e0b' }}></div>
+                    <span>Cases Cited (outbound citations)</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 rounded" style={{ background: '#10b981' }}></div>
+                    <span>Cases Citing (inbound citations)</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Red Border Warning */}
+              <div>
+                <p className="font-medium text-gray-700 mb-2">Visual Warnings:</p>
+                <div className="space-y-2">
+                  <div className="flex items-start gap-2">
+                    <div className="w-4 h-4 rounded border-4 border-red-500 bg-gray-100 flex-shrink-0 mt-0.5"></div>
+                    <div>
+                      <span className="font-medium text-red-700">Red Border:</span>
+                      <span className="text-gray-600"> Case has negative treatment (overruled, reversed, questioned, or criticized)</span>
+                    </div>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <div className="text-gray-600 ml-6">
+                      Click any node to view detailed case information and treatment history
+                    </div>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>

@@ -454,7 +454,7 @@ export const aiAnalysisAPI = {
     onError: (error: string) => void
   ): Promise<void> {
     const params = quick ? '?quick=true' : '';
-    const url = `${API_BASE_URL}/api/v1/ai-analysis/${opinionId}${params}`;
+    const url = `${API_URL}/api/v1/ai-analysis/${opinionId}${params}`;
 
     try {
       const response = await fetch(url, {
