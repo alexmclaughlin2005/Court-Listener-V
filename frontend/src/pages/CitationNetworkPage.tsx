@@ -1,12 +1,14 @@
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import cytoscape from 'cytoscape'
+// TEMPORARILY DISABLED - Cytoscape import
+// import cytoscape from 'cytoscape'
 import { citationAPI, CitationNetwork } from '../lib/api'
 import TreatmentBadge from '../components/TreatmentBadge'
 import CaseDetailFlyout from '../components/CaseDetailFlyout'
 import MethodologyModal from '../components/MethodologyModal'
 
-// Cytoscape stylesheet for citation network
+// TEMPORARILY DISABLED - Cytoscape stylesheet for citation network
+// @ts-ignore - unused during temporary disable
 const getCytoscapeStylesheet = (): any[] => [
   {
     selector: 'node',
@@ -99,8 +101,9 @@ export default function CitationNetworkPage() {
   const [error, setError] = useState<string | null>(null)
   const [depth, setDepth] = useState(1)
   const [maxNodes, setMaxNodes] = useState(50)
-  const cyRef = useRef<cytoscape.Core | null>(null)
-  const [containerReady, setContainerReady] = useState(false)
+  // TEMPORARILY DISABLED - Cytoscape refs
+  // const cyRef = useRef<cytoscape.Core | null>(null)
+  // const [containerReady, setContainerReady] = useState(false)
 
   // Deep analysis state
   const [deepAnalysis, setDeepAnalysis] = useState<any>(null)
@@ -156,7 +159,9 @@ export default function CitationNetworkPage() {
   }, [opinionId, deepAnalysis, loadingAnalysis, fetchDeepAnalysis])
 
   // Convert API data to Cytoscape elements - memoized to prevent recreation
-  const cytoscapeElements = useMemo((): cytoscape.ElementDefinition[] => {
+  // TEMPORARILY DISABLED - Cytoscape elements generation
+  // @ts-ignore - unused during temporary disable
+  const cytoscapeElements = useMemo((): any[] => {
     if (!networkData) {
       console.warn('No network data available')
       return []
@@ -240,7 +245,9 @@ export default function CitationNetworkPage() {
     return elements
   }, [networkData, opinionId])
 
-  const handleNodeClick = useCallback((event: cytoscape.EventObject) => {
+  // TEMPORARILY DISABLED - Node click handler
+  // @ts-ignore - unused during temporary disable
+  const handleNodeClick = useCallback((event: any) => {
     const node = event.target
     const data = node.data()
 
@@ -252,91 +259,21 @@ export default function CitationNetworkPage() {
     }
   }, [])
 
-  // Callback ref to track when container is mounted
-  const containerRefCallback = useCallback((node: HTMLDivElement | null) => {
-    console.log('containerRefCallback called:', { node: !!node })
-    if (node) {
-      cyRef.current = null // Reset cytoscape instance when container mounts
-      setContainerReady(true)
-    } else {
-      setContainerReady(false)
-    }
-  }, []) // NO DEPENDENCIES - stable reference prevents infinite loop
+  // TEMPORARILY DISABLED - Callback ref for Cytoscape container
+  // const containerRefCallback = useCallback((node: HTMLDivElement | null) => {
+  //   console.log('containerRefCallback called:', { node: !!node })
+  //   if (node) {
+  //     cyRef.current = null // Reset cytoscape instance when container mounts
+  //     setContainerReady(true)
+  //   } else {
+  //     setContainerReady(false)
+  //   }
+  // }, []) // NO DEPENDENCIES - stable reference prevents infinite loop
 
-  // Initialize Cytoscape when container and elements are ready
+  // TEMPORARILY DISABLED - Initialize Cytoscape when container and elements are ready
   useEffect(() => {
-    console.log('useEffect triggered:', {
-      containerReady,
-      elementCount: cytoscapeElements.length,
-      hasInstance: !!cyRef.current
-    })
-
-    // Need both container ready and elements
-    if (!containerReady || cytoscapeElements.length === 0) {
-      console.log('Skipping init - container ready:', containerReady, 'elements:', cytoscapeElements.length)
-      return
-    }
-
-    // Get the container element
-    const container = document.querySelector<HTMLDivElement>('[data-cytoscape-container]')
-    if (!container) {
-      console.error('Container element not found!')
-      return
-    }
-
-    console.log('Initializing Cytoscape with', cytoscapeElements.length, 'elements')
-
-    // Clean up existing instance
-    if (cyRef.current) {
-      console.log('Destroying existing Cytoscape instance')
-      cyRef.current.destroy()
-      cyRef.current = null
-    }
-
-    try {
-      // Create new instance
-      const cy = cytoscape({
-        container: container,
-        elements: cytoscapeElements,
-        style: getCytoscapeStylesheet(),
-        layout: {
-          name: 'cose',
-          animate: true,
-          animationDuration: 500,
-          nodeRepulsion: 8000,
-          idealEdgeLength: 100,
-          edgeElasticity: 100,
-          nestingFactor: 1.2,
-          gravity: 1,
-          numIter: 1000,
-          initialTemp: 200,
-          coolingFactor: 0.95,
-          minTemp: 1.0,
-        },
-      })
-
-      console.log('Cytoscape instance created successfully')
-      cyRef.current = cy
-
-      // Add event listeners
-      cy.on('tap', 'node', handleNodeClick)
-      cy.on('layoutstop', () => {
-        console.log('Layout complete, fitting to view')
-        cy.fit(undefined, 50)
-      })
-    } catch (error) {
-      console.error('Error creating Cytoscape instance:', error)
-    }
-
-    // Cleanup function
-    return () => {
-      console.log('Cleaning up Cytoscape instance (effect cleanup)')
-      if (cyRef.current) {
-        cyRef.current.destroy()
-        cyRef.current = null
-      }
-    }
-  }, [containerReady, cytoscapeElements, handleNodeClick])
+    // Cytoscape initialization disabled - do nothing
+  }, [])
 
   if (loading) {
     return (
@@ -484,19 +421,23 @@ export default function CitationNetworkPage() {
 
         {/* Network Graph */}
         <div className="bg-white rounded-lg shadow" style={{ height: '600px' }}>
-          {!loading && networkData && networkData.nodes && networkData.nodes.length > 0 && cytoscapeElements.length > 0 ? (
+          {/* TEMPORARILY DISABLED - Cytoscape visualization causing errors */}
+          {/* {!loading && networkData && networkData.nodes && networkData.nodes.length > 0 && cytoscapeElements.length > 0 ? (
             <div
               ref={containerRefCallback}
               data-cytoscape-container
               style={{ width: '100%', height: '100%' }}
             />
-          ) : (
+          ) : ( */}
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-600">
-                {loading ? 'Loading network data...' : 'No network data to display'}
+                Citation network visualization temporarily disabled for debugging.
+              </p>
+              <p className="text-sm text-gray-500 mt-2">
+                {networkData ? `${networkData.nodes.length} nodes and ${networkData.edges.length} edges loaded` : 'Loading data...'}
               </p>
             </div>
-          )}
+          {/* )} */}
         </div>
 
         {/* Deep Analysis Details */}
