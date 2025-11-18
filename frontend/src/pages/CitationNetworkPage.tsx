@@ -160,16 +160,20 @@ export default function CitationNetworkPage() {
     if (!networkData) return []
 
     const elements: cytoscape.ElementDefinition[] = []
+    const nodeIds = new Set<string>()
 
     // Add nodes
     Object.entries(networkData.nodes).forEach(([layerKey, nodesArray]) => {
       if (Array.isArray(nodesArray)) {
         nodesArray.forEach((node) => {
           const nodeType = node.opinion_id === Number(opinionId) ? 'center' : layerKey.startsWith('inbound') ? 'inbound' : 'outbound'
+          const nodeIdStr = node.opinion_id.toString()
+
+          nodeIds.add(nodeIdStr)
 
           elements.push({
             data: {
-              id: node.opinion_id.toString(),
+              id: nodeIdStr,
               label: node.case_name_short || node.case_name || 'Unknown Case',
               nodeType,
               treatment: node.treatment?.type || null,
@@ -181,20 +185,30 @@ export default function CitationNetworkPage() {
       }
     })
 
-    // Add edges
+    // Add edges - only if both source and target nodes exist
     if (networkData.edges) {
       networkData.edges.forEach((edge, index) => {
-        elements.push({
-          data: {
-            id: `edge-${index}`,
-            source: edge.source.toString(),
-            target: edge.target.toString(),
-            edgeType: edge.type,
-            depth: edge.depth,
-          },
-        })
+        const sourceStr = edge.source.toString()
+        const targetStr = edge.target.toString()
+
+        // Only add edge if both nodes exist
+        if (nodeIds.has(sourceStr) && nodeIds.has(targetStr)) {
+          elements.push({
+            data: {
+              id: `edge-${index}`,
+              source: sourceStr,
+              target: targetStr,
+              edgeType: edge.type,
+              depth: edge.depth,
+            },
+          })
+        } else {
+          console.warn(`Skipping edge ${index}: source=${sourceStr} (exists=${nodeIds.has(sourceStr)}), target=${targetStr} (exists=${nodeIds.has(targetStr)})`)
+        }
       })
     }
+
+    console.log(`Created ${nodeIds.size} nodes and ${elements.filter(e => e.data.id?.toString().startsWith('edge-')).length} valid edges`)
 
     return elements
   }
