@@ -1,16 +1,15 @@
 /**
  * AIRiskAnalysis - AI-powered citation risk analysis component
  *
- * Auto-triggers quick analysis using Claude 3.5 Haiku on mount for instant preview.
+ * Auto-triggers quick analysis using Claude Haiku 4.5 on mount for instant preview.
  * Provides "Deep Analysis" button to get comprehensive analysis with Claude Sonnet 4.5.
  *
- * - Quick Analysis (Haiku): Automatic, 2-5s, concise summary
- * - Deep Analysis (Sonnet 4.5): Manual, 10-30s, comprehensive insights
+ * - Quick Analysis (Haiku 4.5): Automatic, 2-5s, concise summary with quality assessment
+ * - Deep Analysis (Sonnet 4.5): Manual, 10-30s, comprehensive insights with overturn determination
  *
- * @version 1.1.0
+ * @version 2.0.0
  */
-import React, { useState, useEffect, useRef } from 'react';
-import { flushSync } from 'react-dom';
+import React, { useState, useEffect } from 'react';
 import { aiAnalysisAPI } from '../lib/api';
 
 interface AIRiskAnalysisProps {
@@ -33,48 +32,35 @@ export const AIRiskAnalysis: React.FC<AIRiskAnalysisProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [model, setModel] = useState<string>('');
-  const quickTextRef = useRef<string>('');
-  const deepTextRef = useRef<string>('');
 
   // Only show for cases with negative citation risk
   if (severity !== 'NEGATIVE') {
     return null;
   }
 
-  // Auto-trigger quick analysis on mount (with streaming)
+  // Auto-trigger quick analysis on mount
   useEffect(() => {
     const runQuickAnalysis = async () => {
       setLoadingQuick(true);
       setError(null);
-      setExpanded(true); // Auto-expand to show streaming
+      setExpanded(true);
 
-      quickTextRef.current = '';
+      try {
+        const result = await aiAnalysisAPI.analyzeRisk(opinionId, true);
 
-      await aiAnalysisAPI.analyzeRiskStreaming(
-        opinionId,
-        true, // quick=true
-        (chunk) => {
-          // Append each chunk as it arrives
-          const timestamp = new Date().toISOString();
-          console.log(`[${timestamp}] [Quick Analysis] Chunk:`, chunk);
-          quickTextRef.current += chunk;
-          // Force immediate render (bypass React 18 batching)
-          flushSync(() => {
-            setQuickAnalysis(quickTextRef.current);
-          });
-        },
-        (metadata) => {
-          // Stream complete
-          console.log('[Quick Analysis] Complete:', metadata);
-          setModel(metadata.model);
+        if (result.error) {
+          console.error('Quick analysis failed:', result.error);
           setLoadingQuick(false);
-        },
-        (error) => {
-          // Don't show error for auto-triggered quick analysis
-          console.error('Quick analysis failed:', error);
-          setLoadingQuick(false);
+          return;
         }
-      );
+
+        setQuickAnalysis(result.analysis);
+        setModel(result.model || '');
+        setLoadingQuick(false);
+      } catch (err) {
+        console.error('Quick analysis failed:', err);
+        setLoadingQuick(false);
+      }
     };
 
     runQuickAnalysis();
@@ -83,32 +69,24 @@ export const AIRiskAnalysis: React.FC<AIRiskAnalysisProps> = ({
   const handleDeepAnalysis = async () => {
     setLoadingDeep(true);
     setError(null);
-    setExpanded(true); // Auto-expand to show streaming
+    setExpanded(true);
 
-    deepTextRef.current = '';
+    try {
+      const result = await aiAnalysisAPI.analyzeRisk(opinionId, false);
 
-    await aiAnalysisAPI.analyzeRiskStreaming(
-      opinionId,
-      false, // quick=false
-      (chunk) => {
-        // Append each chunk as it arrives
-        console.log('[Deep Analysis] Chunk:', chunk);
-        deepTextRef.current += chunk;
-        // Force immediate render (bypass React 18 batching)
-        flushSync(() => {
-          setDeepAnalysis(deepTextRef.current);
-        });
-      },
-      (metadata) => {
-        // Stream complete
-        setModel(metadata.model);
+      if (result.error) {
+        setError(result.error);
         setLoadingDeep(false);
-      },
-      (error) => {
-        setError(error);
-        setLoadingDeep(false);
+        return;
       }
-    );
+
+      setDeepAnalysis(result.analysis);
+      setModel(result.model || '');
+      setLoadingDeep(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to analyze');
+      setLoadingDeep(false);
+    }
   };
 
   // Determine which analysis to display
