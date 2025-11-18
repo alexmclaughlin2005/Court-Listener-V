@@ -277,7 +277,7 @@ export const CitationQualityAnalysis: React.FC<CitationQualityAnalysisProps> = (
                 <div className="text-right">
                   <div className="text-3xl font-bold">{tree.overall_risk_level}</div>
                   <div className="text-sm opacity-75">
-                    Risk Score: {tree.overall_risk_score.toFixed(1)}/100
+                    Risk Score: {tree.overall_risk_score?.toFixed(1) || '0'}/100
                   </div>
                 </div>
               </div>
@@ -452,12 +452,12 @@ export const CitationQualityAnalysis: React.FC<CitationQualityAnalysisProps> = (
             <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-500">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <p>Analysis completed: {new Date(tree.analysis_completed_at!).toLocaleString()}</p>
-                  <p>Execution time: {tree.execution_time_seconds.toFixed(1)}s</p>
+                  <p>Analysis completed: {tree.analysis_completed_at ? new Date(tree.analysis_completed_at).toLocaleString() : 'In progress'}</p>
+                  <p>Execution time: {tree.execution_time_seconds?.toFixed(1) || '0'}s</p>
                 </div>
                 <div>
-                  <p>Cache hits: {tree.cache_hits} | Cache misses: {tree.cache_misses}</p>
-                  <p>Cache hit rate: {((tree.cache_hits / (tree.cache_hits + tree.cache_misses)) * 100).toFixed(1)}%</p>
+                  <p>Cache hits: {tree.cache_hits || 0} | Cache misses: {tree.cache_misses || 0}</p>
+                  <p>Cache hit rate: {(tree.cache_hits && tree.cache_misses !== undefined) ? ((tree.cache_hits / (tree.cache_hits + tree.cache_misses)) * 100).toFixed(1) : '0'}%</p>
                 </div>
               </div>
               <p className="mt-3">
