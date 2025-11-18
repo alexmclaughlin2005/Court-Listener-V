@@ -74,25 +74,37 @@ All notable changes and progress updates.
 
 ### ✅ Completed
 
-#### AI-Powered Citation Risk Analysis
+#### AI-Powered Citation Risk Analysis with Streaming
 - **Backend Service** ([backend/app/services/ai_risk_analyzer.py](backend/app/services/ai_risk_analyzer.py))
-  - Integrated Anthropic Claude Sonnet 4.5 API
-  - Implemented comprehensive prompt engineering for legal analysis
-  - Text truncation to fit within 200k token context window
-  - Returns structured analysis with token usage statistics
+  - Integrated Anthropic Claude API with streaming support
+  - Two-tier analysis system:
+    - **Quick Analysis**: Claude 3.5 Haiku (`claude-3-5-haiku-20241022`) - 2-5s, 1000 tokens
+    - **Deep Analysis**: Claude Sonnet 4.5 (`claude-sonnet-4-5-20250929`) - 10-30s, 2000 tokens
+  - Implemented `_stream_analysis()` method using Anthropic's `messages.stream()` API
+  - Text truncation to fit within 200k token context window (~150k chars)
+  - Returns token usage statistics in metadata
 
 - **API Endpoints** ([backend/app/api/v1/ai_analysis.py](backend/app/api/v1/ai_analysis.py))
-  - `POST /api/v1/ai-analysis/{opinion_id}` - Analyze case at citation risk
+  - `POST /api/v1/ai-analysis/{opinion_id}?quick=true/false` - Stream AI analysis (Server-Sent Events)
   - `GET /api/v1/ai-analysis/status` - Check AI availability
   - Validates opinion exists and has NEGATIVE severity
   - Includes citing cases and risk context in analysis
+  - SSE format: `data: {"type": "text|metadata|error|done", ...}\n\n`
 
 - **Frontend Component** ([frontend/src/components/AIRiskAnalysis.tsx](frontend/src/components/AIRiskAnalysis.tsx))
-  - "Analyze with AI" button for cases with negative citation risk
-  - Loading states with 10-30 second time estimate
+  - **Auto-triggers Quick Analysis** on mount for instant preview (streaming)
+  - "Get Deep Analysis" button for comprehensive Sonnet 4.5 analysis (streaming)
+  - Real-time text streaming display - updates as chunks arrive
+  - Loading states with model-specific time estimates
   - Expandable/collapsible analysis results
   - Error handling with retry option
-  - AI-generated content disclaimer
+  - AI-generated content disclaimer with model attribution
+
+- **Frontend API Client** ([frontend/src/lib/api.ts](frontend/src/lib/api.ts))
+  - `analyzeRiskStreaming()` method using Fetch API + ReadableStream
+  - Callback-based interface: `onChunk`, `onComplete`, `onError`
+  - SSE parsing with line buffering to handle incomplete chunks
+  - Proper stream decoding with `{ stream: true }` option
 
 - **Integration**
   - Added to Citation Risk tab in case detail flyout
@@ -107,14 +119,31 @@ All notable changes and progress updates.
 #### Documentation Updates
 - Updated README.md with AI features section
 - Updated RAILWAY_SETUP.md with ANTHROPIC_API_KEY setup
-- Updated CHANGELOG.md with implementation details
+- Updated CHANGELOG.md with streaming implementation details
 
 ### Features
 The AI analysis provides:
-1. Overview of why the case is at citation risk
-2. Potential impacts on legal theories if overturned
-3. Connection analysis between cited and citing cases
-4. Practical implications for legal practice
+1. **Two-tier analysis system:**
+   - Quick preview (Haiku 3.5): Auto-triggered, 2-5s response time
+   - Deep analysis (Sonnet 4.5): On-demand, 10-30s comprehensive insights
+2. **Real-time streaming:** Text appears as it's generated (token-by-token)
+3. **Risk overview:** Why the case is at citation risk
+4. **Impact analysis:** Potential impacts on legal theories if overturned
+5. **Connection analysis:** Relationship between cited and citing cases
+6. **Practical implications:** Guidance for legal professionals
+
+### Technical Implementation
+- **Streaming Architecture:**
+  - Backend: Python generators → FastAPI `StreamingResponse` → SSE
+  - Frontend: Fetch API → ReadableStream → callback handlers
+  - Format: Server-Sent Events (text/event-stream)
+- **SSE Message Types:**
+  - `start`: Initial metadata (opinion_id, case_name, risk_summary)
+  - `text`: Text chunks from Claude (streaming)
+  - `metadata`: Final model info and token usage
+  - `error`: Error messages
+  - `done`: Stream completion signal
+- **Buffering:** Line-by-line SSE parsing with incomplete line buffering
 
 ---
 

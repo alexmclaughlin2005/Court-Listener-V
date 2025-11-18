@@ -9,7 +9,7 @@
  *
  * @version 1.1.0
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { aiAnalysisAPI } from '../lib/api';
 
 interface AIRiskAnalysisProps {
@@ -32,6 +32,8 @@ export const AIRiskAnalysis: React.FC<AIRiskAnalysisProps> = ({
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
   const [model, setModel] = useState<string>('');
+  const quickTextRef = useRef<string>('');
+  const deepTextRef = useRef<string>('');
 
   // Only show for cases with negative citation risk
   if (severity !== 'NEGATIVE') {
@@ -45,18 +47,20 @@ export const AIRiskAnalysis: React.FC<AIRiskAnalysisProps> = ({
       setError(null);
       setExpanded(true); // Auto-expand to show streaming
 
-      let analysisText = '';
+      quickTextRef.current = '';
 
       await aiAnalysisAPI.analyzeRiskStreaming(
         opinionId,
         true, // quick=true
         (chunk) => {
           // Append each chunk as it arrives
-          analysisText += chunk;
-          setQuickAnalysis(analysisText);
+          console.log('[Quick Analysis] Chunk:', chunk);
+          quickTextRef.current += chunk;
+          setQuickAnalysis(quickTextRef.current);
         },
         (metadata) => {
           // Stream complete
+          console.log('[Quick Analysis] Complete:', metadata);
           setModel(metadata.model);
           setLoadingQuick(false);
         },
@@ -76,15 +80,16 @@ export const AIRiskAnalysis: React.FC<AIRiskAnalysisProps> = ({
     setError(null);
     setExpanded(true); // Auto-expand to show streaming
 
-    let analysisText = '';
+    deepTextRef.current = '';
 
     await aiAnalysisAPI.analyzeRiskStreaming(
       opinionId,
       false, // quick=false
       (chunk) => {
         // Append each chunk as it arrives
-        analysisText += chunk;
-        setDeepAnalysis(analysisText);
+        console.log('[Deep Analysis] Chunk:', chunk);
+        deepTextRef.current += chunk;
+        setDeepAnalysis(deepTextRef.current);
       },
       (metadata) => {
         // Stream complete
