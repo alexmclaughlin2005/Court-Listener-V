@@ -80,7 +80,7 @@ export const CitationQualityAnalysis: React.FC<CitationQualityAnalysisProps> = (
     fetchCachedTree();
   }, [opinionId]);
 
-  const handleAnalyze = async () => {
+  const handleAnalyze = async (forceRefresh: boolean = false) => {
     setAnalyzing(true);
     setError(null);
     setExpanded(true);
@@ -88,7 +88,7 @@ export const CitationQualityAnalysis: React.FC<CitationQualityAnalysisProps> = (
     try {
       const result = await citationQualityAPI.analyzeTree(opinionId, {
         depth: selectedDepth,
-        force_refresh: false
+        force_refresh: forceRefresh
       });
 
       if (result.success) {
@@ -173,7 +173,7 @@ export const CitationQualityAnalysis: React.FC<CitationQualityAnalysisProps> = (
             {/* Refresh button */}
             {tree && !analyzing && (
               <button
-                onClick={handleAnalyze}
+                onClick={() => handleAnalyze(true)}
                 className="px-4 py-2 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
               >
                 Refresh Analysis
