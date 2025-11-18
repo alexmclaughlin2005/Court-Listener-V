@@ -100,7 +100,7 @@ export default function CitationNetworkPage() {
   const [depth, setDepth] = useState(1)
   const [maxNodes, setMaxNodes] = useState(50)
   const cyRef = useRef<cytoscape.Core | null>(null)
-  const containerRef = useRef<HTMLDivElement | null>(null)
+  const [containerReady, setContainerReady] = useState(false)
 
   // Deep analysis state
   const [deepAnalysis, setDeepAnalysis] = useState<any>(null)
@@ -252,17 +252,35 @@ export default function CitationNetworkPage() {
     }
   }, [])
 
+  // Callback ref to track when container is mounted
+  const containerRefCallback = useCallback((node: HTMLDivElement | null) => {
+    console.log('containerRefCallback called:', { node: !!node, wasReady: containerReady })
+    if (node) {
+      cyRef.current = null // Reset cytoscape instance when container mounts
+      setContainerReady(true)
+    } else {
+      setContainerReady(false)
+    }
+  }, [containerReady])
+
   // Initialize Cytoscape when container and elements are ready
   useEffect(() => {
     console.log('useEffect triggered:', {
-      hasContainer: !!containerRef.current,
+      containerReady,
       elementCount: cytoscapeElements.length,
       hasInstance: !!cyRef.current
     })
 
-    // Need both container and elements
-    if (!containerRef.current || cytoscapeElements.length === 0) {
-      console.log('Skipping init - missing container or elements')
+    // Need both container ready and elements
+    if (!containerReady || cytoscapeElements.length === 0) {
+      console.log('Skipping init - container ready:', containerReady, 'elements:', cytoscapeElements.length)
+      return
+    }
+
+    // Get the container element
+    const container = document.querySelector<HTMLDivElement>('[data-cytoscape-container]')
+    if (!container) {
+      console.error('Container element not found!')
       return
     }
 
@@ -278,7 +296,7 @@ export default function CitationNetworkPage() {
     try {
       // Create new instance
       const cy = cytoscape({
-        container: containerRef.current,
+        container: container,
         elements: cytoscapeElements,
         style: getCytoscapeStylesheet(),
         layout: {
@@ -318,7 +336,7 @@ export default function CitationNetworkPage() {
         cyRef.current = null
       }
     }
-  }, [cytoscapeElements, handleNodeClick])
+  }, [containerReady, cytoscapeElements, handleNodeClick])
 
   if (loading) {
     return (
@@ -468,7 +486,8 @@ export default function CitationNetworkPage() {
         <div className="bg-white rounded-lg shadow" style={{ height: '600px' }}>
           {!loading && networkData && networkData.nodes && networkData.nodes.length > 0 && cytoscapeElements.length > 0 ? (
             <div
-              ref={containerRef}
+              ref={containerRefCallback}
+              data-cytoscape-container
               style={{ width: '100%', height: '100%' }}
             />
           ) : (
