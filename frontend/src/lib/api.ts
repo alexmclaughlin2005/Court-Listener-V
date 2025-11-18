@@ -434,7 +434,7 @@ export const treatmentAPI = {
 // AI Analysis API
 export const aiAnalysisAPI = {
   /**
-   * Get AI-powered analysis of citation risk for an opinion
+   * Get AI-powered analysis of citation risk for an opinion (streaming)
    *
    * Only available for cases with negative citation risk.
    * Requires ANTHROPIC_API_KEY to be configured on the backend.
@@ -442,28 +442,72 @@ export const aiAnalysisAPI = {
    * @param opinionId - The opinion to analyze
    * @param quick - If true, uses Claude 3.5 Haiku for fast analysis (~2-5s).
    *                If false, uses Claude Sonnet 4.5 for comprehensive analysis (~10-30s).
+   * @param onChunk - Callback function called for each streamed chunk
+   * @param onComplete - Callback function called when streaming completes
+   * @param onError - Callback function called if an error occurs
    */
-  analyzeRisk(opinionId: number, quick: boolean = false): Promise<{
-    opinion_id: number;
-    case_name: string;
-    risk_summary: {
-      treatment_type: string;
-      severity: string;
-      confidence: number;
-      negative_count: number;
-      positive_count: number;
-      neutral_count: number;
-    };
-    citing_cases_count: number;
-    analysis: string | null;
-    model: string;
-    usage: {
-      input_tokens: number;
-      output_tokens: number;
-    };
-  }> {
+  async analyzeRiskStreaming(
+    opinionId: number,
+    quick: boolean = false,
+    onChunk: (chunk: string) => void,
+    onComplete: (metadata: { model: string; usage: { input_tokens: number; output_tokens: number } }) => void,
+    onError: (error: string) => void
+  ): Promise<void> {
     const params = quick ? '?quick=true' : '';
-    return apiClient.post(`/api/v1/ai-analysis/${opinionId}${params}`);
+    const url = `${API_BASE_URL}/api/v1/ai-analysis/${opinionId}${params}`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+
+      if (!reader) {
+        throw new Error('No response body');
+      }
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.type === 'text') {
+                onChunk(data.content);
+              } else if (data.type === 'metadata') {
+                onComplete({ model: data.model, usage: data.usage });
+              } else if (data.type === 'error') {
+                onError(data.error);
+              } else if (data.type === 'done') {
+                // Stream complete
+                break;
+              }
+            } catch (e) {
+              // Skip malformed JSON
+              console.warn('Failed to parse SSE data:', line);
+            }
+          }
+        }
+      }
+    } catch (error) {
+      onError(error instanceof Error ? error.message : 'Failed to analyze');
+    }
   },
 
   /**

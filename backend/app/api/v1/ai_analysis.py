@@ -2,8 +2,10 @@
 AI Analysis API - AI-powered citation risk analysis endpoints
 """
 from fastapi import APIRouter, HTTPException, Depends
+from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
 from typing import Optional
+import json
 
 from app.core.database import get_db
 from app.models import Opinion, OpinionCluster, CitationTreatment, Parenthetical
@@ -125,8 +127,8 @@ async def analyze_opinion_risk(
         'neutral_count': risk_summary.neutral_count
     }
 
-    # Call AI analyzer
-    result = await analyzer.analyze_citation_risk(
+    # Call AI analyzer - returns a generator for streaming
+    stream_generator = await analyzer.analyze_citation_risk(
         opinion_text=opinion_text,
         case_name=case_name,
         risk_summary=risk_summary_dict,
@@ -135,27 +137,40 @@ async def analyze_opinion_risk(
         use_quick_analysis=quick
     )
 
-    if not result:
-        raise HTTPException(
-            status_code=500,
-            detail="AI analysis failed. Please try again later."
-        )
+    # Create streaming response
+    async def generate():
+        """Generate Server-Sent Events stream"""
+        # Send initial metadata
+        initial_data = {
+            "type": "start",
+            "opinion_id": opinion_id,
+            "case_name": case_name,
+            "risk_summary": risk_summary_dict,
+            "citing_cases_count": len(citing_cases)
+        }
+        yield f"data: {json.dumps(initial_data)}\n\n"
 
-    if result.get('error'):
-        raise HTTPException(
-            status_code=500,
-            detail=f"AI analysis error: {result['error']}"
-        )
+        # Stream text chunks
+        for chunk in stream_generator:
+            if isinstance(chunk, dict):
+                # Metadata or error
+                yield f"data: {json.dumps(chunk)}\n\n"
+            else:
+                # Text chunk
+                yield f"data: {json.dumps({'type': 'text', 'content': chunk})}\n\n"
 
-    return {
-        "opinion_id": opinion_id,
-        "case_name": case_name,
-        "risk_summary": risk_summary_dict,
-        "citing_cases_count": len(citing_cases),
-        "analysis": result.get('analysis'),
-        "model": result.get('model'),
-        "usage": result.get('usage')
-    }
+        # Send done signal
+        yield f"data: {json.dumps({'type': 'done'})}\n\n"
+
+    return StreamingResponse(
+        generate(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no"  # Disable nginx buffering
+        }
+    )
 
 
 @router.get("/status")

@@ -38,26 +38,34 @@ export const AIRiskAnalysis: React.FC<AIRiskAnalysisProps> = ({
     return null;
   }
 
-  // Auto-trigger quick analysis on mount
+  // Auto-trigger quick analysis on mount (with streaming)
   useEffect(() => {
     const runQuickAnalysis = async () => {
       setLoadingQuick(true);
       setError(null);
+      setExpanded(true); // Auto-expand to show streaming
 
-      try {
-        const result = await aiAnalysisAPI.analyzeRisk(opinionId, true); // quick=true
+      let analysisText = '';
 
-        if (result.analysis) {
-          setQuickAnalysis(result.analysis);
-          setModel(result.model);
-          setExpanded(true); // Auto-expand to show quick analysis
+      await aiAnalysisAPI.analyzeRiskStreaming(
+        opinionId,
+        true, // quick=true
+        (chunk) => {
+          // Append each chunk as it arrives
+          analysisText += chunk;
+          setQuickAnalysis(analysisText);
+        },
+        (metadata) => {
+          // Stream complete
+          setModel(metadata.model);
+          setLoadingQuick(false);
+        },
+        (error) => {
+          // Don't show error for auto-triggered quick analysis
+          console.error('Quick analysis failed:', error);
+          setLoadingQuick(false);
         }
-      } catch (err) {
-        // Don't show error for auto-triggered quick analysis
-        console.error('Quick analysis failed:', err);
-      } finally {
-        setLoadingQuick(false);
-      }
+      );
     };
 
     runQuickAnalysis();
@@ -66,26 +74,28 @@ export const AIRiskAnalysis: React.FC<AIRiskAnalysisProps> = ({
   const handleDeepAnalysis = async () => {
     setLoadingDeep(true);
     setError(null);
+    setExpanded(true); // Auto-expand to show streaming
 
-    try {
-      const result = await aiAnalysisAPI.analyzeRisk(opinionId, false); // quick=false
+    let analysisText = '';
 
-      if (result.analysis) {
-        setDeepAnalysis(result.analysis);
-        setModel(result.model);
-        setExpanded(true);
-      } else {
-        setError('No analysis available');
+    await aiAnalysisAPI.analyzeRiskStreaming(
+      opinionId,
+      false, // quick=false
+      (chunk) => {
+        // Append each chunk as it arrives
+        analysisText += chunk;
+        setDeepAnalysis(analysisText);
+      },
+      (metadata) => {
+        // Stream complete
+        setModel(metadata.model);
+        setLoadingDeep(false);
+      },
+      (error) => {
+        setError(error);
+        setLoadingDeep(false);
       }
-    } catch (err) {
-      if (err instanceof Error) {
-        setError(err.message);
-      } else {
-        setError('Failed to analyze case risk');
-      }
-    } finally {
-      setLoadingDeep(false);
-    }
+    );
   };
 
   // Determine which analysis to display

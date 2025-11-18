@@ -67,7 +67,7 @@ class AIRiskAnalyzer:
         try:
             # Select model based on analysis type
             if use_quick_analysis:
-                model = "claude-3-5-haiku-20241022"
+                model = "claude-3-5-haiku-20241022"  # Latest Haiku 3.5
                 model_name = "claude-3.5-haiku"
                 # Use shorter prompt and fewer tokens for quick analysis
                 if max_tokens > 1000:
@@ -85,28 +85,11 @@ class AIRiskAnalyzer:
                 quick_analysis=use_quick_analysis
             )
 
-            # Call Claude API
-            logger.info(f"Requesting {model_name} analysis for case: {case_name}")
-            message = self.client.messages.create(
-                model=model,
-                max_tokens=max_tokens,
-                messages=[{
-                    "role": "user",
-                    "content": prompt
-                }]
-            )
+            # Call Claude API with streaming
+            logger.info(f"Requesting {model_name} analysis (streaming) for case: {case_name}")
 
-            # Extract text response
-            analysis_text = message.content[0].text if message.content else ""
-
-            return {
-                "analysis": analysis_text,
-                "model": model_name,
-                "usage": {
-                    "input_tokens": message.usage.input_tokens,
-                    "output_tokens": message.usage.output_tokens
-                }
-            }
+            # Return a generator that yields chunks
+            return self._stream_analysis(model, max_tokens, prompt, model_name)
 
         except APIError as e:
             logger.error(f"Anthropic API error: {e}")
@@ -119,6 +102,39 @@ class AIRiskAnalyzer:
             return {
                 "error": str(e),
                 "analysis": None
+            }
+
+    def _stream_analysis(self, model: str, max_tokens: int, prompt: str, model_name: str):
+        """Stream analysis from Claude API"""
+        try:
+            with self.client.messages.stream(
+                model=model,
+                max_tokens=max_tokens,
+                messages=[{
+                    "role": "user",
+                    "content": prompt
+                }]
+            ) as stream:
+                for text in stream.text_stream:
+                    yield text
+
+                # Get final message for usage stats
+                message = stream.get_final_message()
+
+                # Yield metadata as final chunk
+                yield {
+                    "type": "metadata",
+                    "model": model_name,
+                    "usage": {
+                        "input_tokens": message.usage.input_tokens,
+                        "output_tokens": message.usage.output_tokens
+                    }
+                }
+        except Exception as e:
+            logger.error(f"Streaming error: {e}")
+            yield {
+                "type": "error",
+                "error": str(e)
             }
 
     def _build_analysis_prompt(
