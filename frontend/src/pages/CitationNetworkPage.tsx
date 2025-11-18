@@ -9,8 +9,10 @@ import ReactFlow, {
   useEdgesState,
   MarkerType,
   NodeProps,
+  ConnectionLineType,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
+import 'reactflow/dist/base.css'
 import { citationAPI, CitationNetwork } from '../lib/api'
 import TreatmentBadge from '../components/TreatmentBadge'
 import CaseDetailFlyout from '../components/CaseDetailFlyout'
@@ -357,6 +359,12 @@ export default function CitationNetworkPage() {
     fetchNetwork()
   }, [fetchNetwork])
 
+  // Debug: Log when edges change
+  useEffect(() => {
+    console.log('Edges state updated:', edges.length, 'edges')
+    console.log('Nodes state updated:', nodes.length, 'nodes')
+  }, [edges, nodes])
+
   // Automatically fetch deep analysis when page loads
   useEffect(() => {
     if (opinionId && !deepAnalysis && !loadingAnalysis) {
@@ -526,12 +534,20 @@ export default function CitationNetworkPage() {
             onEdgesChange={onEdgesChange}
             onNodeClick={onNodeClick}
             fitView
+            fitViewOptions={{ padding: 0.2 }}
+            minZoom={0.1}
+            maxZoom={2}
             attributionPosition="bottom-right"
             elevateEdgesOnSelect={false}
+            connectionLineType={ConnectionLineType.Straight}
             defaultEdgeOptions={{
-              style: { strokeWidth: 4 },
-              zIndex: 10,
+              type: 'straight',
+              style: { strokeWidth: 4, stroke: '#f59e0b' },
+              animated: false,
             }}
+            proOptions={{ hideAttribution: true }}
+            elementsSelectable={true}
+            selectNodesOnDrag={false}
           >
             <Controls />
             <Background color="#93c5fd" gap={16} />
