@@ -7,8 +7,8 @@ import TreatmentBadge from '../components/TreatmentBadge'
 import CaseDetailFlyout from '../components/CaseDetailFlyout'
 import MethodologyModal from '../components/MethodologyModal'
 
-// TEMPORARILY DISABLED - Cytoscape stylesheet for citation network
-// @ts-ignore - unused during temporary disable
+// Cytoscape stylesheet for citation network
+// @ts-ignore - incrementally re-enabling
 const getCytoscapeStylesheet = (): any[] => [
   {
     selector: 'node',
