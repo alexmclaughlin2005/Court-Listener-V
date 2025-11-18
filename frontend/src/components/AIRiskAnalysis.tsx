@@ -8,7 +8,7 @@
  * - Connection to citing cases
  * - Practical implications
  *
- * @version 1.0.0
+ * @version 1.0.1
  */
 import React, { useState } from 'react';
 import { aiAnalysisAPI } from '../lib/api';
