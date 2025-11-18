@@ -116,7 +116,8 @@ class RecursiveCitationAnalyzer:
                 current_level_ids=current_level_ids,
                 depth=depth,
                 visited=visited,
-                db=db
+                db=db,
+                force_refresh=force_refresh
             )
 
             # Track cache performance
@@ -214,7 +215,8 @@ class RecursiveCitationAnalyzer:
         current_level_ids: Set[int],
         depth: int,
         visited: Set[int],
-        db: Session
+        db: Session,
+        force_refresh: bool = False
     ) -> Tuple[List[Dict], Set[int]]:
         """
         Analyze a single level of citations
@@ -239,8 +241,8 @@ class RecursiveCitationAnalyzer:
                     logger.warning(f"Opinion {cited_id} not found, skipping")
                     continue
 
-                # Check for cached analysis
-                cached_analysis = self.quality_analyzer.get_cached_analysis(cited_id, db)
+                # Check for cached analysis (skip if force_refresh)
+                cached_analysis = None if force_refresh else self.quality_analyzer.get_cached_analysis(cited_id, db)
 
                 if cached_analysis:
                     # Use cached result
