@@ -323,18 +323,21 @@ export default function CitationNetworkPage() {
         id: `edge-${index}`,
         source: edge.source.toString(),
         target: edge.target.toString(),
-        type: 'smoothstep',
-        animated: true,
+        type: 'default',
+        animated: false,
         label: edge.depth > 1 ? `D${edge.depth}` : undefined,
-        labelStyle: { fontSize: 10, fill: '#6b7280' },
-        labelBgStyle: { fill: 'white' },
+        labelStyle: { fontSize: 11, fill: '#374151', fontWeight: 600 },
+        labelBgStyle: { fill: 'white', fillOpacity: 0.8 },
         style: {
           stroke: edge.type === 'inbound' ? '#10b981' : '#f59e0b',
-          strokeWidth: 2,
+          strokeWidth: 3,
+          strokeOpacity: 0.8,
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
           color: edge.type === 'inbound' ? '#10b981' : '#f59e0b',
+          width: 20,
+          height: 20,
         },
       }))
 
