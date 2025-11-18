@@ -324,38 +324,54 @@ function CitationNetworkContent() {
         })
       })
 
-      const flowEdges: Edge[] = (data.edges || []).map((edge, index) => ({
-        id: `edge-${index}`,
-        source: edge.source.toString(),
-        target: edge.target.toString(),
-        type: 'straight',
-        animated: false,
-        label: edge.depth > 1 ? `D${edge.depth}` : undefined,
-        labelStyle: { fontSize: 11, fill: '#374151', fontWeight: 600 },
-        labelBgStyle: { fill: 'white', fillOpacity: 0.8 },
-        style: {
-          stroke: edge.type === 'inbound' ? '#10b981' : '#f59e0b',
-          strokeWidth: 4,
-        },
-        markerEnd: {
-          type: MarkerType.ArrowClosed,
-          color: edge.type === 'inbound' ? '#10b981' : '#f59e0b',
-          width: 25,
-          height: 25,
-        },
-        zIndex: 1,
-      }))
+      const flowEdges: Edge[] = (data.edges || []).map((edge, index) => {
+        const edgeColor = edge.type === 'inbound' ? '#10b981' : '#f59e0b'
+        return {
+          id: `edge-${index}`,
+          source: edge.source.toString(),
+          target: edge.target.toString(),
+          type: 'default',  // Changed to 'default' which is most reliable
+          animated: false,
+          label: edge.depth > 1 ? `D${edge.depth}` : undefined,
+          labelStyle: { fontSize: 11, fill: '#374151', fontWeight: 600 },
+          labelBgStyle: { fill: 'white', fillOpacity: 0.8 },
+          style: {
+            stroke: edgeColor,
+            strokeWidth: 5,
+            strokeOpacity: 1,
+          },
+          markerEnd: {
+            type: MarkerType.ArrowClosed,
+            color: edgeColor,
+            width: 30,
+            height: 30,
+          },
+          zIndex: 1,
+        }
+      })
 
       console.log(`Created ${flowEdges.length} edges:`, flowEdges)
       console.log(`Created ${flowNodes.length} nodes`)
 
-      setNodes(flowNodes)
-      setEdges(flowEdges)
+      // Verify edge connections
+      const nodeIds = new Set(flowNodes.map(n => n.id))
+      const invalidEdges = flowEdges.filter(e => !nodeIds.has(e.source) || !nodeIds.has(e.target))
+      if (invalidEdges.length > 0) {
+        console.warn('Invalid edges (missing nodes):', invalidEdges)
+      }
 
-      // Force ReactFlow to re-render and fit view after edges are added
+      // Set nodes first, then edges with a slight delay to ensure nodes are rendered
+      setNodes(flowNodes)
       setTimeout(() => {
-        reactFlowInstance?.fitView({ padding: 0.2 })
-      }, 100)
+        setEdges(flowEdges)
+        console.log('Edges set after node render')
+
+        // Force ReactFlow to fit view after edges are added
+        setTimeout(() => {
+          reactFlowInstance?.fitView({ padding: 0.2 })
+          console.log('Fit view applied')
+        }, 50)
+      }, 50)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load citation network')
     } finally {
@@ -546,16 +562,25 @@ function CitationNetworkContent() {
             minZoom={0.1}
             maxZoom={2}
             attributionPosition="bottom-right"
-            elevateEdgesOnSelect={false}
+            elevateEdgesOnSelect={true}
             connectionLineType={ConnectionLineType.Straight}
             defaultEdgeOptions={{
-              type: 'straight',
-              style: { strokeWidth: 4, stroke: '#f59e0b' },
+              type: 'default',
+              style: {
+                strokeWidth: 5,
+                stroke: '#f59e0b',
+                strokeOpacity: 1,
+              },
               animated: false,
             }}
             proOptions={{ hideAttribution: true }}
             elementsSelectable={true}
             selectNodesOnDrag={false}
+            edgesUpdatable={false}
+            edgesFocusable={true}
+            nodesDraggable={true}
+            nodesConnectable={false}
+            nodesFocusable={true}
           >
             <Controls />
             <Background color="#93c5fd" gap={16} />
