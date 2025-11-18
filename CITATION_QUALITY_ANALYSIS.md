@@ -31,7 +31,8 @@ Stores AI analysis results for each citation relationship, reusable across cases
 
 ## Phase 1: Database Schema Design
 
-### New Table: `citation_quality_analysis`
+### Table 1: `citation_quality_analysis`
+Stores individual citation quality assessments (reusable across analysis trees).
 
 ```sql
 CREATE TABLE citation_quality_analysis (
@@ -62,6 +63,56 @@ CREATE TABLE citation_quality_analysis (
 CREATE INDEX idx_citation_quality_opinion ON citation_quality_analysis(cited_opinion_id);
 CREATE INDEX idx_citation_quality_assessment ON citation_quality_analysis(quality_assessment);
 CREATE INDEX idx_citation_quality_risk ON citation_quality_analysis(risk_score DESC);
+```
+
+### Table 2: `citation_analysis_tree`
+Stores complete analysis trees for specific root opinions (for incremental updates and full tree storage).
+
+```sql
+CREATE TABLE citation_analysis_tree (
+    id SERIAL PRIMARY KEY,
+    root_opinion_id INTEGER NOT NULL REFERENCES search_opinion(id),
+
+    -- Analysis Configuration
+    max_depth INTEGER NOT NULL,              -- Depth analyzed (1-4)
+    current_depth INTEGER NOT NULL,          -- Deepest level completed
+
+    -- Aggregated Results
+    total_citations_analyzed INTEGER DEFAULT 0,
+    good_count INTEGER DEFAULT 0,
+    questionable_count INTEGER DEFAULT 0,
+    overruled_count INTEGER DEFAULT 0,
+    superseded_count INTEGER DEFAULT 0,
+
+    -- Risk Assessment
+    overall_risk_score FLOAT DEFAULT 0.0,
+    overall_risk_level VARCHAR(20),          -- LOW, MEDIUM, HIGH
+    risk_factors JSONB,                      -- Array of risk factor descriptions
+
+    -- Tree Structure (JSONB for flexibility)
+    tree_data JSONB NOT NULL,                -- Full citation tree with relationships
+    high_risk_citations JSONB,               -- Subset of most problematic citations
+
+    -- Metadata
+    analysis_started_at TIMESTAMP DEFAULT NOW(),
+    analysis_completed_at TIMESTAMP,
+    last_updated TIMESTAMP DEFAULT NOW(),
+    execution_time_seconds FLOAT,
+    cache_hits INTEGER DEFAULT 0,
+    cache_misses INTEGER DEFAULT 0,
+
+    -- Status tracking
+    status VARCHAR(20) DEFAULT 'in_progress', -- in_progress, completed, failed
+    error_message TEXT,
+
+    -- Allow multiple analyses per opinion (different depths, re-runs)
+    UNIQUE(root_opinion_id, max_depth, analysis_completed_at)
+);
+
+CREATE INDEX idx_tree_root_opinion ON citation_analysis_tree(root_opinion_id);
+CREATE INDEX idx_tree_status ON citation_analysis_tree(status);
+CREATE INDEX idx_tree_risk_level ON citation_analysis_tree(overall_risk_level);
+CREATE INDEX idx_tree_completed ON citation_analysis_tree(analysis_completed_at DESC);
 ```
 
 ### Table Relationships
@@ -114,10 +165,16 @@ Court: {court_name}
 Date Filed: {date_filed}
 Citation Count: {citation_count}
 
-Opinion Text (excerpt): {opinion_text_excerpt}
+=== FULL OPINION TEXT ===
+{full_opinion_text}
+=== END OPINION TEXT ===
 
 Treatment Status: {treatment_type} ({severity})
 - Negative Examples: {negative_treatment_examples}
+- Negative Treatments Count: {negative_count}
+- Total Treatments: {total_treatments}
+
+Context: This case is being cited by another case. We need to determine if it is safe to rely upon as legal precedent.
 
 Task: Determine if this case is safe to rely upon as legal precedent.
 
@@ -129,9 +186,14 @@ Respond in JSON format:
   "is_questioned": boolean,
   "is_criticized": boolean,
   "risk_score": 0-100,
-  "summary": "2-3 sentence explanation"
+  "summary": "2-3 sentence explanation of why this assessment was made"
 }
 ```
+
+**Note**: Full opinion text is required for accurate analysis. Text will be fetched from:
+1. Database `search_opinion.plain_text` or `search_opinion.html` (preferred)
+2. CourtListener API `/api/rest/v4/opinions/{id}/` if missing from DB
+3. Truncate to 150,000 characters (~37,500 tokens) if necessary for API limits
 
 **Quality Assessment Categories**:
 - `GOOD`: Safe to cite, no negative treatment
@@ -185,25 +247,44 @@ class RecursiveCitationAnalyzer:
         """
 ```
 
-**Algorithm**:
-1. Start with root opinion
-2. For current level:
-   - Fetch all cited opinions from `opinions_cited` table
+**Algorithm** (Breadth-First):
+1. **Initialization**:
+   - Check if tree exists for this opinion at requested depth
+   - If exists and current_depth >= max_depth: return cached tree
+   - If exists but current_depth < max_depth: load tree, continue from next level
+   - If not exists: create new tree record with status='in_progress'
+
+2. **For each level (breadth-first)**:
+   - Fetch all cited opinions from `opinions_cited` table for current level
    - For each cited opinion:
      - Check if it's been visited (prevent cycles)
-     - Ensure opinion data exists (fetch if missing)
+     - Ensure opinion data exists in DB:
+       - Check for opinion text (plain_text or html)
+       - If missing, fetch from CourtListener API
      - Check for cached analysis in `citation_quality_analysis`
-     - If no cache: run AI analysis and cache result
-     - Add to current level results
-   - Queue cited opinions for next level
-3. Recurse to next level (depth + 1)
-4. Aggregate results and calculate risk
+     - If no cache:
+       - Fetch treatment data from `citation_treatment` table
+       - Run AI analysis with FULL opinion text
+       - Cache result in `citation_quality_analysis`
+     - Add to current level results with relationships
+     - Add cited opinions to queue for next level
+
+3. **After completing all levels**:
+   - Calculate overall risk score
+   - **Re-evaluation Pass**: Check if any Level 3-4 citations have strong negative treatment
+     - If yes, re-evaluate their parent citations (Levels 1-2) with this new context
+     - Update risk scores for affected parent citations
+   - Save complete tree to `citation_analysis_tree`
+   - Update status='completed'
+
+4. **Return aggregated results**
 
 **Performance Optimizations**:
 - Parallel processing per level using `asyncio.gather()`
-- Batch database queries
+- Batch database queries (fetch all level citations in one query)
 - Reuse cached analyses across cases
 - Limit to 100 citations per level (configurable)
+- Incremental updates: skip levels already analyzed
 
 ---
 
@@ -330,33 +411,55 @@ Response:
 - Filter by quality assessment
 - Export results
 
-**UI Layout**:
+**UI Layout** (List-Based with Expandable Sections):
 ```
-┌─────────────────────────────────────────────────────┐
-│  Citation Quality Analysis                          │
-│  [Analyze Citation Tree (4 levels)] [Export]        │
-├─────────────────────────────────────────────────────┤
-│  Overall Risk: MEDIUM (35.2/100)   ⚠️               │
-│  87 citations analyzed • 8 overruled • 12 risky     │
-├─────────────────────────────────────────────────────┤
-│  ⚠️ High Risk Citations (10)                        │
-│  ├─ [Level 1] Smith v. Jones - OVERRULED           │
-│  │   Risk: 85/100 • Explicitly overruled in 2020   │
-│  │   [View Details] [View Case]                    │
-│  ├─ [Level 2] Doe v. State - QUESTIONABLE          │
-│  └─ ...                                             │
-├─────────────────────────────────────────────────────┤
-│  📊 Citation Quality Breakdown                      │
-│  [Good: 65] [Questionable: 12] [Overruled: 8]      │
-├─────────────────────────────────────────────────────┤
-│  🌳 Full Citation Tree (Click to expand levels)     │
-│  └─ Current Case                                    │
-│     ├─ [✅ GOOD] Case A (cited 45 times)            │
-│     │  └─ [✅ GOOD] Case A1                         │
-│     │  └─ [⚠️  QUESTIONABLE] Case A2                │
-│     ├─ [❌ OVERRULED] Case B                        │
-│     └─ [✅ GOOD] Case C                             │
-└─────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│  Citation Quality Analysis                                      │
+│  [Analyze Citation Quality (4 levels)] [Export] [Refresh]      │
+├─────────────────────────────────────────────────────────────────┤
+│  ⚠️  Overall Risk: MEDIUM (35.2/100)                           │
+│  87 citations analyzed • 8 overruled • 12 questionable         │
+│  Analysis completed in 12.3s • 45 from cache, 42 new          │
+├─────────────────────────────────────────────────────────────────┤
+│  📊 Quick Stats                                                 │
+│  [✅ Good: 65 (75%)] [⚠️  Questionable: 12 (14%)]              │
+│  [❌ Overruled: 8 (9%)] [🔄 Superseded: 2 (2%)]                │
+├─────────────────────────────────────────────────────────────────┤
+│  🚨 High Risk Citations (8) [Click to expand all]              │
+│  ▼ Level 1 (2 high-risk citations)                             │
+│    • Smith v. Jones (Opinion ID: 789012) ❌ OVERRULED          │
+│      Risk: 85/100 | Confidence: 95% | Cited: 2015             │
+│      "This case was explicitly overruled in 2020 by..."        │
+│      [View Full Analysis] [View Case] [View Network]           │
+│                                                                 │
+│    • Brown v. Board (Opinion ID: 123456) ⚠️  QUESTIONABLE      │
+│      Risk: 67/100 | Confidence: 82% | Cited: 2018             │
+│      "Multiple courts have questioned this holding..."         │
+│      [View Full Analysis] [View Case] [View Network]           │
+│                                                                 │
+│  ▶ Level 2 (3 high-risk citations) [Click to expand]          │
+│  ▶ Level 3 (2 high-risk citations) [Click to expand]          │
+│  ▶ Level 4 (1 high-risk citation) [Click to expand]           │
+├─────────────────────────────────────────────────────────────────┤
+│  📋 All Citations by Level                                      │
+│  ▼ Level 1: Direct Citations (23 cases) [Filter: All ▼]       │
+│    ✅ GOOD (18) | ⚠️  QUESTIONABLE (3) | ❌ OVERRULED (2)      │
+│                                                                 │
+│    1. ✅ Case A v. Case B (Opinion ID: 111222)                 │
+│       Risk: 5/100 | Court: 9th Circuit | Date: 2020           │
+│       "Well-established precedent with no negative..."         │
+│       [Expand to see 12 Level 2 citations] [View Case]        │
+│                                                                 │
+│    2. ❌ Smith v. Jones (Opinion ID: 789012)                   │
+│       Risk: 85/100 | Court: District Court | Date: 2015       │
+│       "This case was explicitly overruled..."                  │
+│       [Expand to see 8 Level 2 citations] [View Case]         │
+│       ...                                                       │
+│                                                                 │
+│  ▶ Level 2: Secondary Citations (34 cases) [Click to expand]  │
+│  ▶ Level 3: Tertiary Citations (21 cases) [Click to expand]   │
+│  ▶ Level 4: Quaternary Citations (9 cases) [Click to expand]  │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
@@ -524,17 +627,21 @@ Response:
 
 ---
 
-## Design Decisions Needed
+## Design Decisions ✅
 
-1. **Depth Strategy**: Should we analyze breadth-first (all of level 1, then all of level 2) or depth-first (follow one citation chain to depth 4 before next chain)?
+1. **Depth Strategy**: ✅ **BREADTH-FIRST** - Analyze all of level 1, then all of level 2, etc.
 
-2. **UI Preference**: Do you want a tree visualization (like your network graph) or a list-based view with expandable sections?
+2. **UI Preference**: ✅ **LIST-BASED VIEW** - Expandable sections organized by depth level
 
-3. **Trigger Point**: Should this be triggered automatically when viewing a case, or only on-demand when user clicks a button?
+3. **Trigger Point**: ✅ **ON-DEMAND BUTTON** - User clicks "Analyze Citation Quality" button to trigger
 
-4. **Storage Scope**: Should we store the full analysis tree (relationships between citations) or just individual citation assessments?
+4. **Storage Scope**: ✅ **FULL TREE** - Store complete analysis tree with relationships between citations
 
-5. **Incremental Analysis**: If we've analyzed levels 1-2 before, should we skip those and just analyze levels 3-4?
+5. **Incremental Analysis**: ✅ **YES** - Skip previously analyzed levels, only analyze new depths
+
+6. **Opinion Text**: ✅ **FULL TEXT REQUIRED** - Pass complete opinion text (from DB or API) to AI for analysis
+
+7. **Re-evaluation**: ✅ **POST-ANALYSIS REVIEW** - After completing 4 levels, re-evaluate top-level cases if deeper citations show strong negative treatment
 
 ---
 
