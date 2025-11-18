@@ -162,7 +162,7 @@ export const CitationQualityAnalysis: React.FC<CitationQualityAnalysisProps> = (
             {/* Analyze button */}
             {!tree && !analyzing && (
               <button
-                onClick={handleAnalyze}
+                onClick={() => handleAnalyze()}
                 disabled={analyzing}
                 className="px-4 py-2 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
@@ -216,7 +216,7 @@ export const CitationQualityAnalysis: React.FC<CitationQualityAnalysisProps> = (
               overruled, questioned, or criticized cases.
             </p>
             <button
-              onClick={handleAnalyze}
+              onClick={() => handleAnalyze()}
               className="px-6 py-3 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors inline-flex items-center gap-2"
             >
               <span>🤖</span>
@@ -254,7 +254,7 @@ export const CitationQualityAnalysis: React.FC<CitationQualityAnalysisProps> = (
             <p className="text-red-800 font-medium mb-2">Analysis Failed</p>
             <p className="text-sm text-red-700">{error}</p>
             <button
-              onClick={handleAnalyze}
+              onClick={() => handleAnalyze()}
               className="mt-4 text-sm text-red-700 hover:text-red-900 underline"
             >
               Try again
