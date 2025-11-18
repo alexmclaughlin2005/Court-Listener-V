@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import CytoscapeComponent from 'react-cytoscapejs'
 import cytoscape from 'cytoscape'
@@ -155,8 +155,8 @@ export default function CitationNetworkPage() {
     }
   }, [opinionId, deepAnalysis, loadingAnalysis, fetchDeepAnalysis])
 
-  // Convert API data to Cytoscape elements
-  const getCytoscapeElements = (): cytoscape.ElementDefinition[] => {
+  // Convert API data to Cytoscape elements - memoized to prevent recreation
+  const cytoscapeElements = useMemo((): cytoscape.ElementDefinition[] => {
     if (!networkData) {
       console.warn('No network data available')
       return []
@@ -235,7 +235,7 @@ export default function CitationNetworkPage() {
     console.log(`Created ${nodeIds.size} nodes and ${elements.filter(e => e.data.id?.toString().startsWith('edge-')).length} valid edges`)
 
     return elements
-  }
+  }, [networkData, opinionId])
 
   const handleNodeClick = (event: cytoscape.EventObject) => {
     const node = event.target
@@ -395,32 +395,40 @@ export default function CitationNetworkPage() {
 
         {/* Network Graph */}
         <div className="bg-white rounded-lg shadow" style={{ height: '600px' }}>
-          <CytoscapeComponent
-            elements={getCytoscapeElements()}
-            style={{ width: '100%', height: '100%' }}
-            stylesheet={getCytoscapeStylesheet()}
-            layout={{
-              name: 'cose',
-              animate: true,
-              animationDuration: 500,
-              nodeRepulsion: 8000,
-              idealEdgeLength: 100,
-              edgeElasticity: 100,
-              nestingFactor: 1.2,
-              gravity: 1,
-              numIter: 1000,
-              initialTemp: 200,
-              coolingFactor: 0.95,
-              minTemp: 1.0,
-            }}
-            cy={(cy: cytoscape.Core) => {
-              cyRef.current = cy
-              cy.on('tap', 'node', handleNodeClick)
-              cy.on('layoutstop', () => {
-                cy.fit(undefined, 50)
-              })
-            }}
-          />
+          {networkData && networkData.nodes && networkData.nodes.length > 0 && cytoscapeElements.length > 0 ? (
+            <CytoscapeComponent
+              elements={cytoscapeElements}
+              style={{ width: '100%', height: '100%' }}
+              stylesheet={getCytoscapeStylesheet()}
+              layout={{
+                name: 'cose',
+                animate: true,
+                animationDuration: 500,
+                nodeRepulsion: 8000,
+                idealEdgeLength: 100,
+                edgeElasticity: 100,
+                nestingFactor: 1.2,
+                gravity: 1,
+                numIter: 1000,
+                initialTemp: 200,
+                coolingFactor: 0.95,
+                minTemp: 1.0,
+              }}
+              cy={(cy: cytoscape.Core) => {
+                cyRef.current = cy
+                cy.on('tap', 'node', handleNodeClick)
+                cy.on('layoutstop', () => {
+                  cy.fit(undefined, 50)
+                })
+              }}
+            />
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              <p className="text-gray-600">
+                {loading ? 'Loading network data...' : 'No network data to display'}
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Deep Analysis Details */}
