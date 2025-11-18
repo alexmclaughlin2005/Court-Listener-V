@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
-// TEMPORARILY DISABLED - Cytoscape import
-// import cytoscape from 'cytoscape'
+// @ts-ignore - incrementally re-enabling
+import cytoscape from 'cytoscape'
 import { citationAPI, CitationNetwork } from '../lib/api'
 import TreatmentBadge from '../components/TreatmentBadge'
 import CaseDetailFlyout from '../components/CaseDetailFlyout'
