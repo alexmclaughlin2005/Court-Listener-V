@@ -377,7 +377,7 @@ function CitationNetworkContent() {
     } finally {
       setLoading(false)
     }
-  }, [opinionId, depth, maxNodes, setNodes, setEdges, reactFlowInstance])
+  }, [opinionId, depth, maxNodes, setNodes, setEdges])  // Removed reactFlowInstance from dependencies
 
   useEffect(() => {
     fetchNetwork()
