@@ -254,57 +254,61 @@ export default function CitationNetworkPage() {
 
   // Initialize Cytoscape with proper cleanup
   useEffect(() => {
-    if (!containerRef.current || cytoscapeElements.length === 0) {
-      console.log('Skipping Cytoscape init: no container or elements')
-      return
-    }
+    // Wait for next tick to ensure container is in DOM
+    const timeoutId = setTimeout(() => {
+      if (!containerRef.current || cytoscapeElements.length === 0) {
+        console.log('Skipping Cytoscape init: container=', !!containerRef.current, 'elements=', cytoscapeElements.length)
+        return
+      }
 
-    console.log('Initializing Cytoscape with', cytoscapeElements.length, 'elements')
+      console.log('Initializing Cytoscape with', cytoscapeElements.length, 'elements')
 
-    // Destroy existing instance
-    if (cyRef.current) {
-      console.log('Destroying existing Cytoscape instance')
-      cyRef.current.destroy()
-      cyRef.current = null
-    }
+      // Destroy existing instance
+      if (cyRef.current) {
+        console.log('Destroying existing Cytoscape instance')
+        cyRef.current.destroy()
+        cyRef.current = null
+      }
 
-    try {
-      // Create new instance
-      const cy = cytoscape({
-        container: containerRef.current,
-        elements: cytoscapeElements,
-        style: getCytoscapeStylesheet(),
-        layout: {
-          name: 'cose',
-          animate: true,
-          animationDuration: 500,
-          nodeRepulsion: 8000,
-          idealEdgeLength: 100,
-          edgeElasticity: 100,
-          nestingFactor: 1.2,
-          gravity: 1,
-          numIter: 1000,
-          initialTemp: 200,
-          coolingFactor: 0.95,
-          minTemp: 1.0,
-        },
-      })
+      try {
+        // Create new instance
+        const cy = cytoscape({
+          container: containerRef.current,
+          elements: cytoscapeElements,
+          style: getCytoscapeStylesheet(),
+          layout: {
+            name: 'cose',
+            animate: true,
+            animationDuration: 500,
+            nodeRepulsion: 8000,
+            idealEdgeLength: 100,
+            edgeElasticity: 100,
+            nestingFactor: 1.2,
+            gravity: 1,
+            numIter: 1000,
+            initialTemp: 200,
+            coolingFactor: 0.95,
+            minTemp: 1.0,
+          },
+        })
 
-      console.log('Cytoscape instance created successfully')
-      cyRef.current = cy
+        console.log('Cytoscape instance created successfully')
+        cyRef.current = cy
 
-      // Add event listeners
-      cy.on('tap', 'node', handleNodeClick)
-      cy.on('layoutstop', () => {
-        console.log('Layout complete, fitting to view')
-        cy.fit(undefined, 50)
-      })
-    } catch (error) {
-      console.error('Error creating Cytoscape instance:', error)
-    }
+        // Add event listeners
+        cy.on('tap', 'node', handleNodeClick)
+        cy.on('layoutstop', () => {
+          console.log('Layout complete, fitting to view')
+          cy.fit(undefined, 50)
+        })
+      } catch (error) {
+        console.error('Error creating Cytoscape instance:', error)
+      }
+    }, 0)
 
     // Cleanup function
     return () => {
+      clearTimeout(timeoutId)
       console.log('Cleaning up Cytoscape instance')
       if (cyRef.current) {
         cyRef.current.destroy()
