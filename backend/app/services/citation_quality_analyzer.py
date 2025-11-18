@@ -208,37 +208,59 @@ class CitationQualityAnalyzer:
                     for ex in examples:
                         evidence_text += f"- {ex.get('text', '')}\n"
 
-        prompt = f"""You are a legal research assistant analyzing citation quality. Evaluate this case for precedential reliability.
+        prompt = f"""You are a legal research assistant analyzing case precedent. Evaluate this opinion based ONLY on its own content and metadata.
 
 === CASE METADATA ===
 Case: {case_metadata['case_name']}
 Court: {case_metadata['court_name']}
 Date Filed: {case_metadata['date_filed'] or 'Unknown'}
-Times Cited: {case_metadata['citation_count']}
+Times Cited by Other Cases: {case_metadata['citation_count']}
 
 === FULL OPINION TEXT ===
 {opinion_text}
 === END OPINION TEXT ===
 
-=== SUBSEQUENT TREATMENT DATA ===
-Treatment Type: {treatment_context['treatment_type']} ({treatment_context['severity']})
-Negative Citations: {treatment_context['negative_count']}
-Positive Citations: {treatment_context['positive_count']}
-Neutral Citations: {treatment_context['neutral_count']}
-Treatment Confidence: {treatment_context['confidence']:.2f}{evidence_text}
-
 === YOUR TASK ===
-Analyze this opinion's precedential reliability by examining:
+Analyze this opinion's intrinsic precedential value by examining the opinion text itself:
 
-1. **Holding & Reasoning**: Is the legal holding clear? Is reasoning sound and well-supported?
-2. **Overruling Language**: Does the opinion text explicitly state it is overruling, reversing, or vacating prior precedent? Look for phrases like "overruled," "reversed," "vacated," "no longer good law."
-3. **Superseding Events**: Does the opinion mention being superseded by statute, constitutional amendment, or en banc rehearing?
-4. **Procedural Posture**: What was the outcome? (e.g., affirmed, reversed, remanded, dismissed)
-5. **Dictum vs. Holding**: Is the key legal point part of the holding or merely dicta?
-6. **Treatment Context**: Given the treatment data above, has this case been negatively treated by later courts?
-7. **Citation Value**: Based on citation count and court authority, is this influential precedent?
+1. **Procedural Outcome**: What happened? Look for:
+   - "AFFIRMED" = lower court decision upheld → holding is binding precedent
+   - "REVERSED" = lower court overturned → this court's reasoning is precedent
+   - "REMANDED" = sent back for further proceedings → holdings on decided issues are precedent
+   - "DISMISSED" = case thrown out → usually no precedential value
+   - "VACATED" = prior decision nullified → limited or no precedential value
 
-CRITICAL: If treatment data shows "UNKNOWN" or 0 treatments, this means we have NO information about how later courts treated this case. This creates uncertainty about current precedential status, especially for older cases.
+2. **This Opinion's Effect on Prior Law**: Does this opinion explicitly overrule or supersede earlier cases?
+   - Search for: "overruled", "overrule", "no longer good law", "superseded by statute", "abrogated"
+   - If found: Assessment should be GOOD (this opinion did the overruling, so it's current law)
+
+3. **Holding vs. Dicta**:
+   - Holding = rule necessary to decide the case (binding precedent)
+   - Dicta = commentary not necessary to decision (persuasive only)
+   - Is the main legal principle part of the actual holding?
+
+4. **Quality of Reasoning**:
+   - Is the legal analysis thorough and well-reasoned?
+   - Does it cite relevant precedent and statutes?
+   - Is the reasoning clear or convoluted?
+
+5. **Court Authority**:
+   - Higher courts = stronger precedent
+   - En banc decisions > panel decisions
+   - Consider: {case_metadata['court_name']}
+
+6. **Age & Citation Count**:
+   - Age: {case_metadata['date_filed'] or 'Unknown'}
+   - Cited {case_metadata['citation_count']} times
+   - Older cases with low citation counts may have limited relevance
+
+CRITICAL RULES:
+- DO NOT consider how later cases treated this opinion - analyze ONLY this opinion itself
+- If this opinion REVERSED or OVERRULED prior cases, that's GOOD (it's the current law)
+- If this opinion was AFFIRMED or has a clear holding, that's typically GOOD
+- Only mark OVERRULED if this opinion itself states it's been superseded/abrogated
+- Only mark QUESTIONABLE if the reasoning is weak, dicta-heavy, or procedurally problematic
+- Mark UNCERTAIN only if you cannot determine the precedential value from the text
 
 Return ONLY valid JSON (no explanatory text):
 
@@ -249,22 +271,22 @@ Return ONLY valid JSON (no explanatory text):
   "is_questioned": boolean,
   "is_criticized": boolean,
   "risk_score": 0-100,
-  "summary": "2-3 sentence explanation focusing on specific findings from the opinion text and treatment data"
+  "summary": "2-3 sentences explaining your assessment based on specific findings in the opinion text"
 }}
 
 **Assessment Categories:**
-- **GOOD**: Clear holding, sound reasoning, no negative treatment, currently good law
-- **QUESTIONABLE**: Weakened by criticism, questioning, or partially limited by later cases
-- **OVERRULED**: Explicitly overruled, reversed, or vacated by this or later opinions
-- **SUPERSEDED**: Replaced by statute, constitutional amendment, or en banc decision
-- **UNCERTAIN**: Unknown treatment status OR unclear precedential reliability (use for old cases with 0 recorded treatments)
+- **GOOD**: Clear holding, sound reasoning, proper procedural posture, currently binding precedent
+- **QUESTIONABLE**: Weak reasoning, primarily dicta, or problematic procedural posture (dismissed/vacated)
+- **OVERRULED**: This opinion explicitly states it has been overruled or superseded (rare - only if stated in text)
+- **SUPERSEDED**: Opinion states it's superseded by statute/amendment (look for explicit language)
+- **UNCERTAIN**: Cannot determine precedential value from opinion text and metadata alone
 
-**Risk Score:**
-- 0-30: Strong precedent, safe to cite
-- 31-50: Generally reliable but verify currency
-- 51-70: Moderate concerns, cite with caution and explanation
-- 71-90: Significant issues, avoid primary reliance
-- 91-100: Overruled or superseded, do not cite as good law"""
+**Risk Score Guidelines:**
+- 0-20: Strong binding precedent (affirmed holding, clear reasoning, authoritative court)
+- 21-40: Solid precedent with minor concerns (older case, lower court, but good reasoning)
+- 41-60: Moderate concerns (mixed dicta/holding, unclear reasoning, or procedural issues)
+- 61-80: Significant issues (primarily dicta, weak reasoning, or dismissed/vacated)
+- 81-100: Should not be cited as precedent (overruled, superseded, or no precedential value)"""
 
         return prompt
 

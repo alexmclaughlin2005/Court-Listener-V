@@ -296,35 +296,69 @@ class RecursiveCitationAnalyzer:
 
     def _re_evaluate_parents(self, all_citations: Dict[int, Dict], max_depth: int):
         """
-        Re-evaluate parent citations if children have high risk
+        Re-evaluate parent citations based on the quality of cases they cite
 
-        If a Level 3-4 citation has very high risk (>= 70), we should
-        increase the risk of its parents (Levels 1-2) since they rely on it.
+        Phase 2: Adjust risk scores if a case relies on overruled/superseded precedent.
+        A case citing bad law should have its risk score increased.
         """
-        # Find high-risk deep citations (levels 3-4)
-        high_risk_deep = [
-            cit for cit in all_citations.values()
-            if cit["depth"] >= 3 and cit["risk_score"] >= RE_EVALUATION_THRESHOLD
-        ]
+        # Organize by depth for easier parent-child analysis
+        by_depth = defaultdict(list)
+        for cit in all_citations.values():
+            by_depth[cit["depth"]].append(cit)
 
-        if not high_risk_deep:
-            logger.debug("No high-risk deep citations found, skipping re-evaluation")
-            return
+        # Work backwards from deepest level
+        for depth in range(max_depth, 0, -1):
+            citations_at_depth = by_depth[depth]
 
-        logger.info(f"Found {len(high_risk_deep)} high-risk citations at depth >= 3, re-evaluating parents")
+            # Find problematic citations at this depth
+            overruled_or_superseded = [
+                cit for cit in citations_at_depth
+                if cit["quality_assessment"] in ["OVERRULED", "SUPERSEDED"]
+            ]
 
-        # For now, just add a risk factor note to parents
-        # In a more sophisticated implementation, we could:
-        # 1. Track parent-child relationships in tree_data
-        # 2. Increase parent risk scores proportionally
-        # 3. Update parent summaries to mention problematic children
+            questionable = [
+                cit for cit in citations_at_depth
+                if cit["quality_assessment"] == "QUESTIONABLE"
+            ]
 
-        # Simple approach: Mark any Level 1-2 citations as higher risk
-        for citation in all_citations.values():
-            if citation["depth"] <= 2:
-                # Check if any children are high risk
-                # (This is simplified - in production, track actual relationships)
-                citation["has_high_risk_children"] = len(high_risk_deep) > 0
+            high_risk = [
+                cit for cit in citations_at_depth
+                if cit["risk_score"] >= RE_EVALUATION_THRESHOLD
+            ]
+
+            if not (overruled_or_superseded or high_risk):
+                continue
+
+            logger.info(f"Depth {depth}: Found {len(overruled_or_superseded)} overruled/superseded, {len(questionable)} questionable, {len(high_risk)} high-risk citations")
+
+            # Increase risk for all citations at shallower depths
+            # (they may be citing this problematic precedent)
+            for parent_depth in range(1, depth):
+                for parent in by_depth[parent_depth]:
+                    original_score = parent["risk_score"]
+
+                    # Add risk penalty based on problematic citations
+                    # Weight by depth (closer citations matter more)
+                    depth_weight = 1.0 / depth  # Deeper = less weight
+
+                    penalty = 0
+                    if overruled_or_superseded:
+                        # Major penalty for citing overruled cases
+                        penalty += len(overruled_or_superseded) * 15 * depth_weight
+                    if questionable:
+                        # Moderate penalty for citing questionable cases
+                        penalty += len(questionable) * 5 * depth_weight
+
+                    # Apply penalty (cap at +30 points)
+                    penalty = min(penalty, 30)
+                    parent["risk_score"] = min(100, original_score + penalty)
+
+                    if penalty > 0:
+                        logger.debug(f"Increased risk for opinion {parent['opinion_id']} from {original_score} to {parent['risk_score']} due to problematic citations at depth {depth}")
+
+                        # Update summary to mention the issue
+                        if penalty >= 10:
+                            parent["summary"] += f" NOTE: This case cites precedent that has been overruled or has significant issues (risk increased by {int(penalty)} points)."
 
     def _calculate_overall_risk(self, all_citations: Dict[int, Dict]) -> Dict:
         """Calculate overall risk assessment for the tree"""
