@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import CytoscapeComponent from 'react-cytoscapejs'
 import cytoscape from 'cytoscape'
 import { citationAPI, CitationNetwork } from '../lib/api'
 import TreatmentBadge from '../components/TreatmentBadge'
@@ -101,6 +100,7 @@ export default function CitationNetworkPage() {
   const [depth, setDepth] = useState(1)
   const [maxNodes, setMaxNodes] = useState(50)
   const cyRef = useRef<cytoscape.Core | null>(null)
+  const containerRef = useRef<HTMLDivElement | null>(null)
 
   // Deep analysis state
   const [deepAnalysis, setDeepAnalysis] = useState<any>(null)
@@ -240,7 +240,7 @@ export default function CitationNetworkPage() {
     return elements
   }, [networkData, opinionId])
 
-  const handleNodeClick = (event: cytoscape.EventObject) => {
+  const handleNodeClick = useCallback((event: cytoscape.EventObject) => {
     const node = event.target
     const data = node.data()
 
@@ -250,7 +250,68 @@ export default function CitationNetworkPage() {
         opinionId: data.opinionId,
       })
     }
-  }
+  }, [])
+
+  // Initialize Cytoscape with proper cleanup
+  useEffect(() => {
+    if (!containerRef.current || cytoscapeElements.length === 0) {
+      console.log('Skipping Cytoscape init: no container or elements')
+      return
+    }
+
+    console.log('Initializing Cytoscape with', cytoscapeElements.length, 'elements')
+
+    // Destroy existing instance
+    if (cyRef.current) {
+      console.log('Destroying existing Cytoscape instance')
+      cyRef.current.destroy()
+      cyRef.current = null
+    }
+
+    try {
+      // Create new instance
+      const cy = cytoscape({
+        container: containerRef.current,
+        elements: cytoscapeElements,
+        style: getCytoscapeStylesheet(),
+        layout: {
+          name: 'cose',
+          animate: true,
+          animationDuration: 500,
+          nodeRepulsion: 8000,
+          idealEdgeLength: 100,
+          edgeElasticity: 100,
+          nestingFactor: 1.2,
+          gravity: 1,
+          numIter: 1000,
+          initialTemp: 200,
+          coolingFactor: 0.95,
+          minTemp: 1.0,
+        },
+      })
+
+      console.log('Cytoscape instance created successfully')
+      cyRef.current = cy
+
+      // Add event listeners
+      cy.on('tap', 'node', handleNodeClick)
+      cy.on('layoutstop', () => {
+        console.log('Layout complete, fitting to view')
+        cy.fit(undefined, 50)
+      })
+    } catch (error) {
+      console.error('Error creating Cytoscape instance:', error)
+    }
+
+    // Cleanup function
+    return () => {
+      console.log('Cleaning up Cytoscape instance')
+      if (cyRef.current) {
+        cyRef.current.destroy()
+        cyRef.current = null
+      }
+    }
+  }, [cytoscapeElements, handleNodeClick])
 
   if (loading) {
     return (
@@ -399,32 +460,9 @@ export default function CitationNetworkPage() {
         {/* Network Graph */}
         <div className="bg-white rounded-lg shadow" style={{ height: '600px' }}>
           {!loading && networkData && networkData.nodes && networkData.nodes.length > 0 && cytoscapeElements.length > 0 ? (
-            <CytoscapeComponent
-              key={`cytoscape-${opinionId}-${cytoscapeElements.length}`}
-              elements={cytoscapeElements}
+            <div
+              ref={containerRef}
               style={{ width: '100%', height: '100%' }}
-              stylesheet={getCytoscapeStylesheet()}
-              layout={{
-                name: 'cose',
-                animate: true,
-                animationDuration: 500,
-                nodeRepulsion: 8000,
-                idealEdgeLength: 100,
-                edgeElasticity: 100,
-                nestingFactor: 1.2,
-                gravity: 1,
-                numIter: 1000,
-                initialTemp: 200,
-                coolingFactor: 0.95,
-                minTemp: 1.0,
-              }}
-              cy={(cy: cytoscape.Core) => {
-                cyRef.current = cy
-                cy.on('tap', 'node', handleNodeClick)
-                cy.on('layoutstop', () => {
-                  cy.fit(undefined, 50)
-                })
-              }}
             />
           ) : (
             <div className="flex items-center justify-center h-full">
