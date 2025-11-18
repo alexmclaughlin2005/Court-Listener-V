@@ -12,6 +12,7 @@ import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { searchAPI, citationAPI, treatmentAPI, CaseDetail, CitationNode, TreatmentSummary } from '../lib/api';
 import TreatmentBadge from './TreatmentBadge';
+import AIRiskAnalysis from './AIRiskAnalysis';
 
 interface CaseDetailFlyoutProps {
   clusterId: number;
@@ -411,6 +412,14 @@ export const CaseDetailFlyout: React.FC<CaseDetailFlyoutProps> = ({
                             <div className="text-sm text-gray-600">Neutral</div>
                           </div>
                         </div>
+
+                        {/* AI Risk Analysis */}
+                        <AIRiskAnalysis
+                          opinionId={opinionId}
+                          caseName={caseDetail?.case_name || `Opinion ${opinionId}`}
+                          severity={treatment.severity}
+                          className="mt-6"
+                        />
 
                         {/* Significant Citation Risks */}
                         {treatment.significant_treatments && treatment.significant_treatments.length > 0 && (

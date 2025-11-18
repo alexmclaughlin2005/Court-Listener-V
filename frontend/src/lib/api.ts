@@ -431,4 +431,46 @@ export const treatmentAPI = {
   },
 };
 
+// AI Analysis API
+export const aiAnalysisAPI = {
+  /**
+   * Get AI-powered analysis of citation risk for an opinion
+   *
+   * Only available for cases with negative citation risk.
+   * Requires ANTHROPIC_API_KEY to be configured on the backend.
+   */
+  analyzeRisk(opinionId: number): Promise<{
+    opinion_id: number;
+    case_name: string;
+    risk_summary: {
+      treatment_type: string;
+      severity: string;
+      confidence: number;
+      negative_count: number;
+      positive_count: number;
+      neutral_count: number;
+    };
+    citing_cases_count: number;
+    analysis: string | null;
+    model: string;
+    usage: {
+      input_tokens: number;
+      output_tokens: number;
+    };
+  }> {
+    return apiClient.post(`/api/v1/ai-analysis/${opinionId}`);
+  },
+
+  /**
+   * Check if AI analysis is available
+   */
+  getStatus(): Promise<{
+    available: boolean;
+    model: string | null;
+    message: string;
+  }> {
+    return apiClient.get('/api/v1/ai-analysis/status');
+  },
+};
+
 export default apiClient;

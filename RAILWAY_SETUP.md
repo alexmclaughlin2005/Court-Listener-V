@@ -30,9 +30,12 @@ In Railway, go to your backend service → Variables tab, add:
 DATABASE_URL=${{Postgres.DATABASE_URL}}
 CORS_ORIGINS=https://your-frontend.vercel.app,http://localhost:3000
 ENVIRONMENT=production
+ANTHROPIC_API_KEY=your_anthropic_api_key_here
 ```
 
-**Note**: `DATABASE_URL` is automatically set by Railway when you link the PostgreSQL service.
+**Note**:
+- `DATABASE_URL` is automatically set by Railway when you link the PostgreSQL service.
+- `ANTHROPIC_API_KEY` is required for AI-powered citation risk analysis (optional, but recommended). Get your API key from https://console.anthropic.com/
 
 To link PostgreSQL:
 1. Go to your backend service

@@ -70,10 +70,59 @@ All notable changes and progress updates.
 
 ---
 
+## [2025-11-18] - AI Analysis Integration
+
+### ✅ Completed
+
+#### AI-Powered Citation Risk Analysis
+- **Backend Service** ([backend/app/services/ai_risk_analyzer.py](backend/app/services/ai_risk_analyzer.py))
+  - Integrated Anthropic Claude Sonnet 4.5 API
+  - Implemented comprehensive prompt engineering for legal analysis
+  - Text truncation to fit within 200k token context window
+  - Returns structured analysis with token usage statistics
+
+- **API Endpoints** ([backend/app/api/v1/ai_analysis.py](backend/app/api/v1/ai_analysis.py))
+  - `POST /api/v1/ai-analysis/{opinion_id}` - Analyze case at citation risk
+  - `GET /api/v1/ai-analysis/status` - Check AI availability
+  - Validates opinion exists and has NEGATIVE severity
+  - Includes citing cases and risk context in analysis
+
+- **Frontend Component** ([frontend/src/components/AIRiskAnalysis.tsx](frontend/src/components/AIRiskAnalysis.tsx))
+  - "Analyze with AI" button for cases with negative citation risk
+  - Loading states with 10-30 second time estimate
+  - Expandable/collapsible analysis results
+  - Error handling with retry option
+  - AI-generated content disclaimer
+
+- **Integration**
+  - Added to Citation Risk tab in case detail flyout
+  - Added `anthropic==0.40.0` to requirements.txt
+  - Registered routes in API router
+  - TypeScript API client methods
+
+#### Environment Configuration
+- Added `ANTHROPIC_API_KEY` environment variable to Railway
+- Updated deployment documentation
+
+#### Documentation Updates
+- Updated README.md with AI features section
+- Updated RAILWAY_SETUP.md with ANTHROPIC_API_KEY setup
+- Updated CHANGELOG.md with implementation details
+
+### Features
+The AI analysis provides:
+1. Overview of why the case is at citation risk
+2. Potential impacts on legal theories if overturned
+3. Connection analysis between cited and citing cases
+4. Practical implications for legal practice
+
+---
+
 ## Notes
 
 - Backend URL: `https://court-listener-v-production.up.railway.app`
 - Repository: `https://github.com/alexmclaughlin2005/Court-Listener-V`
 - All deployment configurations are in place
 - Ready for database initialization and frontend deployment
+- AI Analysis powered by Claude Sonnet 4.5 (model: claude-sonnet-4-5-20250929)
 

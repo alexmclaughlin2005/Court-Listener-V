@@ -18,6 +18,7 @@ A powerful case law search and citation analysis tool built with CourtListener's
 - PostgreSQL 15+
 - SQLAlchemy
 - Celery + Redis (for background tasks)
+- Anthropic Claude Sonnet 4.5 (AI-powered citation risk analysis)
 - Python 3.11+
 
 ### Frontend
@@ -51,6 +52,22 @@ A powerful case law search and citation analysis tool built with CourtListener's
 
 - **Backend**: Railway (PostgreSQL + FastAPI) → [RAILWAY_SETUP.md](RAILWAY_SETUP.md)
 - **Frontend**: Vercel (React app) → [VERCEL_SETUP.md](VERCEL_SETUP.md)
+
+## Features
+
+### Citation Risk Analysis
+- Automated analysis of case citations to identify citation risks
+- Risk categorization: Negative (overruled, questioned), Positive (affirmed, followed), Neutral (cited)
+- AI-powered deep analysis using Claude Sonnet 4.5
+- Visual citation network mapping with D3.js
+- Treatment history timeline
+
+### AI Analysis (Powered by Anthropic Claude Sonnet 4.5)
+For cases with negative citation risk, the system provides AI-powered analysis including:
+- Overview of why the case is at risk
+- Potential impacts on legal theories
+- Connection analysis between cited and citing cases
+- Practical implications for legal practice
 
 ## Documentation
 
