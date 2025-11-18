@@ -254,7 +254,7 @@ def ensure_opinion_text(opinion: Opinion, db: Session) -> Optional[str]:
     """
     Ensure opinion has full text, fetch from API if missing
 
-    Priority: plain_text > html > fetch from API
+    Priority: plain_text > html > html_with_citations > fetch from API
 
     Args:
         opinion: Opinion object
@@ -267,7 +267,7 @@ def ensure_opinion_text(opinion: Opinion, db: Session) -> Optional[str]:
         RateLimitError: If API rate limit exceeded
         CourtListenerAPIError: For other API errors
     """
-    # Check existing text fields
+    # Check existing text fields (prioritize plain text, then html, then html_with_citations)
     if opinion.plain_text:
         logger.debug(f"Opinion {opinion.id} has plain_text ({len(opinion.plain_text)} chars)")
         return opinion.plain_text
@@ -275,6 +275,10 @@ def ensure_opinion_text(opinion: Opinion, db: Session) -> Optional[str]:
     if opinion.html:
         logger.debug(f"Opinion {opinion.id} has html ({len(opinion.html)} chars)")
         return opinion.html
+
+    if opinion.html_with_citations:
+        logger.debug(f"Opinion {opinion.id} has html_with_citations ({len(opinion.html_with_citations)} chars)")
+        return opinion.html_with_citations
 
     # No text in DB, fetch from API
     logger.info(f"Opinion {opinion.id} missing text, fetching from API")
@@ -284,20 +288,23 @@ def ensure_opinion_text(opinion: Opinion, db: Session) -> Optional[str]:
         if not opinion_data:
             return None
 
-        # Update opinion with text
+        # Update opinion with text (check all available fields)
         plain_text = opinion_data.get("plain_text")
         html = opinion_data.get("html")
+        html_with_citations = opinion_data.get("html_with_citations")
 
         if plain_text:
             opinion.plain_text = plain_text
         if html:
             opinion.html = html
+        if html_with_citations:
+            opinion.html_with_citations = html_with_citations
 
         db.commit()
         db.refresh(opinion)
 
         # Return best available text
-        text = plain_text or html
+        text = plain_text or html or html_with_citations
         if text:
             logger.info(f"Opinion {opinion.id} text fetched ({len(text)} chars)")
         return text
