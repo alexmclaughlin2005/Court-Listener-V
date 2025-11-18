@@ -175,6 +175,11 @@ export default function CitationNetworkPage() {
 
     // Add nodes - networkData.nodes is a flat array
     networkData.nodes.forEach((node) => {
+      if (!node || !node.opinion_id) {
+        console.warn('Skipping invalid node:', node)
+        return
+      }
+
       const nodeType = node.opinion_id === Number(opinionId)
         ? 'center'
         : node.node_type === 'citing'
@@ -187,20 +192,26 @@ export default function CitationNetworkPage() {
       elements.push({
         data: {
           id: nodeIdStr,
-          label: node.case_name_short || node.case_name || 'Unknown Case',
+          label: (node.case_name_short || node.case_name || 'Unknown Case').substring(0, 50),
           nodeType,
           treatment: node.treatment?.type || null,
-          clusterId: node.cluster_id,
+          clusterId: node.cluster_id || 0,
           opinionId: node.opinion_id,
         },
+        position: { x: 0, y: 0 }, // Initial position, will be set by layout
       })
     })
 
     console.log(`Processed ${networkData.nodes.length} nodes`)
 
     // Add edges - only if both source and target nodes exist
-    if (networkData.edges) {
+    if (networkData.edges && Array.isArray(networkData.edges)) {
       networkData.edges.forEach((edge, index) => {
+        if (!edge || edge.source === undefined || edge.target === undefined) {
+          console.warn(`Skipping invalid edge ${index}:`, edge)
+          return
+        }
+
         const sourceStr = edge.source.toString()
         const targetStr = edge.target.toString()
 
@@ -211,8 +222,8 @@ export default function CitationNetworkPage() {
               id: `edge-${index}`,
               source: sourceStr,
               target: targetStr,
-              edgeType: edge.type,
-              depth: edge.depth,
+              edgeType: edge.type || 'outbound',
+              depth: edge.depth || 1,
             },
           })
         } else {
