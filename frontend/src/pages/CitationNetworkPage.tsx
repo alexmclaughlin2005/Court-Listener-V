@@ -323,23 +323,26 @@ export default function CitationNetworkPage() {
         id: `edge-${index}`,
         source: edge.source.toString(),
         target: edge.target.toString(),
-        type: 'default',
+        type: 'straight',
         animated: false,
         label: edge.depth > 1 ? `D${edge.depth}` : undefined,
         labelStyle: { fontSize: 11, fill: '#374151', fontWeight: 600 },
         labelBgStyle: { fill: 'white', fillOpacity: 0.8 },
         style: {
           stroke: edge.type === 'inbound' ? '#10b981' : '#f59e0b',
-          strokeWidth: 3,
-          strokeOpacity: 0.8,
+          strokeWidth: 4,
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
           color: edge.type === 'inbound' ? '#10b981' : '#f59e0b',
-          width: 20,
-          height: 20,
+          width: 25,
+          height: 25,
         },
+        zIndex: 1,
       }))
+
+      console.log(`Created ${flowEdges.length} edges:`, flowEdges)
+      console.log(`Created ${flowNodes.length} nodes`)
 
       setNodes(flowNodes)
       setEdges(flowEdges)
@@ -524,9 +527,14 @@ export default function CitationNetworkPage() {
             onNodeClick={onNodeClick}
             fitView
             attributionPosition="bottom-right"
+            elevateEdgesOnSelect={false}
+            defaultEdgeOptions={{
+              style: { strokeWidth: 4 },
+              zIndex: 10,
+            }}
           >
             <Controls />
-            <Background />
+            <Background color="#93c5fd" gap={16} />
           </ReactFlow>
         </div>
 
