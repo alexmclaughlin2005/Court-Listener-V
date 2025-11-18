@@ -245,8 +245,8 @@ export default function CitationNetworkPage() {
     return elements
   }, [networkData, opinionId])
 
-  // TEMPORARILY DISABLED - Node click handler
-  // @ts-ignore - unused during temporary disable
+  // Node click handler
+  // @ts-ignore - incrementally re-enabling
   const handleNodeClick = useCallback((event: any) => {
     const node = event.target
     const data = node.data()
@@ -259,16 +259,18 @@ export default function CitationNetworkPage() {
     }
   }, [])
 
-  // TEMPORARILY DISABLED - Callback ref for Cytoscape container
-  // const containerRefCallback = useCallback((node: HTMLDivElement | null) => {
-  //   console.log('containerRefCallback called:', { node: !!node })
-  //   if (node) {
-  //     cyRef.current = null // Reset cytoscape instance when container mounts
-  //     setContainerReady(true)
-  //   } else {
-  //     setContainerReady(false)
-  //   }
-  // }, []) // NO DEPENDENCIES - stable reference prevents infinite loop
+  // Callback ref for Cytoscape container
+  // CRITICAL: Empty dependency array prevents infinite remounting loop
+  // @ts-ignore - incrementally re-enabling
+  const containerRefCallback = useCallback((node: HTMLDivElement | null) => {
+    console.log('containerRefCallback called:', { node: !!node })
+    if (node) {
+      cyRef.current = null // Reset cytoscape instance when container mounts
+      setContainerReady(true)
+    } else {
+      setContainerReady(false)
+    }
+  }, []) // NO DEPENDENCIES - stable reference prevents infinite loop
 
   // TEMPORARILY DISABLED - Initialize Cytoscape when container and elements are ready
   useEffect(() => {
