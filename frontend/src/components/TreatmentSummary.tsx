@@ -10,15 +10,18 @@
 import React, { useEffect, useState } from 'react';
 import { TreatmentSummary as TreatmentSummaryType, treatmentAPI } from '../lib/api';
 import TreatmentBadge from './TreatmentBadge';
+import AIRiskAnalysis from './AIRiskAnalysis';
 
 interface TreatmentSummaryProps {
   opinionId: number;
+  caseName?: string;
   showHistory?: boolean;
   className?: string;
 }
 
 export const TreatmentSummary: React.FC<TreatmentSummaryProps> = ({
   opinionId,
+  caseName,
   showHistory = false,
   className = ''
 }) => {
@@ -131,6 +134,14 @@ export const TreatmentSummary: React.FC<TreatmentSummaryProps> = ({
                 </div>
               </div>
             </div>
+
+            {/* AI Risk Analysis */}
+            <AIRiskAnalysis
+              opinionId={opinionId}
+              caseName={caseName || `Opinion ${opinionId}`}
+              severity={treatment.severity}
+              className="mb-6"
+            />
 
             {/* Significant Treatments */}
             {treatment.significant_treatments && treatment.significant_treatments.length > 0 && (

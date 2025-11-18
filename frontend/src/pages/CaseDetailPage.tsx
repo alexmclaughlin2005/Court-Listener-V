@@ -146,6 +146,7 @@ export default function CaseDetailPage() {
         {caseData.opinions.length > 0 && (
           <TreatmentSummary
             opinionId={caseData.opinions[0].id}
+            caseName={caseData.case_name}
             showHistory={true}
             className="mb-6"
           />
