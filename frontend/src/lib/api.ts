@@ -475,13 +475,19 @@ export const aiAnalysisAPI = {
         throw new Error('No response body');
       }
 
+      let buffer = '';
+
       while (true) {
         const { done, value } = await reader.read();
 
         if (done) break;
 
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
+        // Decode chunk and add to buffer
+        buffer += decoder.decode(value, { stream: true });
+
+        // Split by lines but keep incomplete lines in buffer
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || ''; // Keep last incomplete line in buffer
 
         for (const line of lines) {
           if (line.startsWith('data: ')) {
@@ -496,7 +502,7 @@ export const aiAnalysisAPI = {
                 onError(data.error);
               } else if (data.type === 'done') {
                 // Stream complete
-                break;
+                return;
               }
             } catch (e) {
               // Skip malformed JSON
