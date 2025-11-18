@@ -64,9 +64,14 @@ export const CitationQualityAnalysis: React.FC<CitationQualityAnalysisProps> = (
         const cachedTree = await citationQualityAPI.getTree(opinionId);
         setTree(cachedTree);
         setError(null);
-      } catch (err) {
-        // No cached tree available - this is expected
-        console.log('No cached citation quality analysis found');
+      } catch (err: any) {
+        // No cached tree available - this is expected for first-time analysis
+        // Only log if it's not a 404
+        if (!err.message?.includes('404') && !err.message?.includes('not found')) {
+          console.error('Error fetching cached tree:', err);
+        }
+        // Don't set error state for 404s - just show "no analysis" UI
+        setTree(null);
       } finally {
         setLoading(false);
       }
