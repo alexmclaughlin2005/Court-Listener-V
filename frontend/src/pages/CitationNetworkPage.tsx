@@ -157,13 +157,26 @@ export default function CitationNetworkPage() {
 
   // Convert API data to Cytoscape elements
   const getCytoscapeElements = (): cytoscape.ElementDefinition[] => {
-    if (!networkData) return []
+    if (!networkData) {
+      console.warn('No network data available')
+      return []
+    }
+
+    console.log('Network data structure:', networkData)
 
     const elements: cytoscape.ElementDefinition[] = []
     const nodeIds = new Set<string>()
 
+    // Check if nodes exist and is an object
+    if (!networkData.nodes || typeof networkData.nodes !== 'object') {
+      console.error('Invalid nodes structure:', networkData.nodes)
+      return []
+    }
+
     // Add nodes
     Object.entries(networkData.nodes).forEach(([layerKey, nodesArray]) => {
+      console.log(`Processing layer ${layerKey}:`, nodesArray)
+
       if (Array.isArray(nodesArray)) {
         nodesArray.forEach((node) => {
           const nodeType = node.opinion_id === Number(opinionId) ? 'center' : layerKey.startsWith('inbound') ? 'inbound' : 'outbound'
@@ -182,6 +195,8 @@ export default function CitationNetworkPage() {
             },
           })
         })
+      } else {
+        console.warn(`Layer ${layerKey} is not an array:`, nodesArray)
       }
     })
 
