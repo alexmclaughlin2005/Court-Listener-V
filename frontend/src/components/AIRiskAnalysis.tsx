@@ -10,6 +10,7 @@
  * @version 1.1.0
  */
 import React, { useState, useEffect, useRef } from 'react';
+import { flushSync } from 'react-dom';
 import { aiAnalysisAPI } from '../lib/api';
 
 interface AIRiskAnalysisProps {
@@ -56,7 +57,10 @@ export const AIRiskAnalysis: React.FC<AIRiskAnalysisProps> = ({
           // Append each chunk as it arrives
           console.log('[Quick Analysis] Chunk:', chunk);
           quickTextRef.current += chunk;
-          setQuickAnalysis(quickTextRef.current);
+          // Force immediate render (bypass React 18 batching)
+          flushSync(() => {
+            setQuickAnalysis(quickTextRef.current);
+          });
         },
         (metadata) => {
           // Stream complete
@@ -89,7 +93,10 @@ export const AIRiskAnalysis: React.FC<AIRiskAnalysisProps> = ({
         // Append each chunk as it arrives
         console.log('[Deep Analysis] Chunk:', chunk);
         deepTextRef.current += chunk;
-        setDeepAnalysis(deepTextRef.current);
+        // Force immediate render (bypass React 18 batching)
+        flushSync(() => {
+          setDeepAnalysis(deepTextRef.current);
+        });
       },
       (metadata) => {
         // Stream complete
