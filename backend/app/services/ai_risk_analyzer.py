@@ -33,7 +33,8 @@ class AIRiskAnalyzer:
         case_name: str,
         risk_summary: Dict,
         citing_cases: List[Dict],
-        max_tokens: int = 2000
+        max_tokens: int = 2000,
+        use_quick_analysis: bool = False
     ) -> Optional[Dict]:
         """
         Analyze why a case is at risk using AI
@@ -44,6 +45,7 @@ class AIRiskAnalyzer:
             risk_summary: Citation risk summary (type, severity, confidence, counts)
             citing_cases: List of cases that cite this opinion negatively
             max_tokens: Maximum response length
+            use_quick_analysis: If True, uses Haiku for faster analysis; if False, uses Sonnet 4.5
 
         Returns:
             Dict with analysis results or None if unavailable

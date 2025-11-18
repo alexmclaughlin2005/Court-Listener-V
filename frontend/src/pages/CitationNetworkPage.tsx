@@ -478,23 +478,24 @@ export default function CitationNetworkPage() {
 
         {/* Network Graph */}
         <div className="bg-white rounded-lg shadow" style={{ height: '600px' }}>
-          {/* TEMPORARILY DISABLED - Cytoscape visualization causing errors */}
-          {/* {!loading && networkData && networkData.nodes && networkData.nodes.length > 0 && cytoscapeElements.length > 0 ? (
+          {!loading && networkData && networkData.nodes && networkData.nodes.length > 0 && cytoscapeElements.length > 0 ? (
             <div
               ref={containerRefCallback}
               data-cytoscape-container
               style={{ width: '100%', height: '100%' }}
             />
-          ) : ( */}
+          ) : (
             <div className="flex items-center justify-center h-full">
               <p className="text-gray-600">
-                Citation network visualization temporarily disabled for debugging.
+                {networkData ? 'Preparing citation network...' : 'Loading data...'}
               </p>
-              <p className="text-sm text-gray-500 mt-2">
-                {networkData ? `${networkData.nodes.length} nodes and ${networkData.edges.length} edges loaded` : 'Loading data...'}
-              </p>
+              {networkData && (
+                <p className="text-sm text-gray-500 mt-2">
+                  {networkData.nodes.length} nodes and {networkData.edges.length} edges
+                </p>
+              )}
             </div>
-          {/* )} */}
+          )}
         </div>
 
         {/* Deep Analysis Details */}
