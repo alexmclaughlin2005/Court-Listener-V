@@ -2,8 +2,8 @@
 AI Risk Analyzer - Uses Claude AI to analyze citation risks
 
 Two-tier analysis system:
-- Quick Analysis: Claude 3.7 Haiku (fast, concise)
-- Deep Analysis: Claude Sonnet 4.5 (comprehensive)
+- Quick Analysis: Claude Haiku 4.5 (fastest, near-frontier intelligence)
+- Deep Analysis: Claude Sonnet 4.5 (comprehensive, maximum intelligence)
 
 Provides AI-powered analysis including:
 - Opinion text quality assessment
@@ -24,7 +24,7 @@ class AIRiskAnalyzer:
     Analyzes citation risks using Claude AI models
 
     Features:
-    - Two-tier analysis: Quick (Haiku 3.7) or Deep (Sonnet 4.5)
+    - Two-tier analysis: Quick (Haiku 4.5) or Deep (Sonnet 4.5)
     - Opinion text quality assessment
     - Overturn status determination
     - Practical guidance for legal practitioners
@@ -82,8 +82,8 @@ class AIRiskAnalyzer:
         try:
             # Select model based on analysis type
             if use_quick_analysis:
-                model = "claude-3-7-haiku-20250110"  # Latest Haiku 3.7 (Jan 2025)
-                model_name = "claude-3.7-haiku"
+                model = "claude-haiku-4-5-20251001"  # Latest Haiku 4.5 (Oct 2024)
+                model_name = "claude-haiku-4.5"
                 # Use shorter prompt and fewer tokens for quick analysis
                 if max_tokens > 1000:
                     max_tokens = 1000
