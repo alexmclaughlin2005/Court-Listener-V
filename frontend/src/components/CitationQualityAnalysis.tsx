@@ -266,7 +266,7 @@ export const CitationQualityAnalysis: React.FC<CitationQualityAnalysisProps> = (
         {tree && expanded && !analyzing && (
           <div className="space-y-6">
             {/* Overall Risk Assessment */}
-            <div className={`rounded-lg border p-6 ${riskLevelColors[tree.overall_risk_level]}`}>
+            <div className={`rounded-lg border p-6 ${riskLevelColors[tree.overall_risk_assessment.level]}`}>
               <div className="flex items-start justify-between mb-4">
                 <div>
                   <h4 className="text-lg font-semibold mb-1">Overall Risk Assessment</h4>
@@ -275,19 +275,19 @@ export const CitationQualityAnalysis: React.FC<CitationQualityAnalysisProps> = (
                   </p>
                 </div>
                 <div className="text-right">
-                  <div className="text-3xl font-bold">{tree.overall_risk_level}</div>
+                  <div className="text-3xl font-bold">{tree.overall_risk_assessment.level}</div>
                   <div className="text-sm opacity-75">
-                    Risk Score: {tree.overall_risk_score?.toFixed(1) || '0'}/100
+                    Risk Score: {tree.overall_risk_assessment.score?.toFixed(1) || '0'}/100
                   </div>
                 </div>
               </div>
 
               {/* Risk Factors */}
-              {tree.risk_factors && tree.risk_factors.length > 0 && (
+              {tree.overall_risk_assessment.factors && tree.overall_risk_assessment.factors.length > 0 && (
                 <div className="mt-4 pt-4 border-t border-current/20">
                   <p className="text-sm font-medium mb-2">Risk Factors:</p>
                   <ul className="space-y-1">
-                    {tree.risk_factors.map((factor, idx) => (
+                    {tree.overall_risk_assessment.factors.map((factor, idx) => (
                       <li key={idx} className="text-sm">• {factor}</li>
                     ))}
                   </ul>
@@ -298,23 +298,23 @@ export const CitationQualityAnalysis: React.FC<CitationQualityAnalysisProps> = (
             {/* Quick Stats */}
             <div className="grid grid-cols-5 gap-4">
               <div className="bg-green-50 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-green-700">{tree.good_count}</div>
+                <div className="text-2xl font-bold text-green-700">{tree.analysis_summary.good_count}</div>
                 <div className="text-sm text-green-600">Good</div>
               </div>
               <div className="bg-yellow-50 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-yellow-700">{tree.questionable_count}</div>
+                <div className="text-2xl font-bold text-yellow-700">{tree.analysis_summary.questionable_count}</div>
                 <div className="text-sm text-yellow-600">Questionable</div>
               </div>
               <div className="bg-red-50 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-red-700">{tree.overruled_count}</div>
+                <div className="text-2xl font-bold text-red-700">{tree.analysis_summary.overruled_count}</div>
                 <div className="text-sm text-red-600">Overruled</div>
               </div>
               <div className="bg-orange-50 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-orange-700">{tree.superseded_count}</div>
+                <div className="text-2xl font-bold text-orange-700">{tree.analysis_summary.superseded_count}</div>
                 <div className="text-sm text-orange-600">Superseded</div>
               </div>
               <div className="bg-gray-50 rounded-lg p-4 text-center">
-                <div className="text-2xl font-bold text-gray-700">{tree.uncertain_count}</div>
+                <div className="text-2xl font-bold text-gray-700">{tree.analysis_summary.uncertain_count}</div>
                 <div className="text-sm text-gray-600">Uncertain</div>
               </div>
             </div>
@@ -388,7 +388,7 @@ export const CitationQualityAnalysis: React.FC<CitationQualityAnalysisProps> = (
             {/* Citations by Depth */}
             <div className="space-y-4">
               <h4 className="text-lg font-semibold text-gray-900">Citations by Depth</h4>
-              {tree.tree_data?.citations_by_depth && Object.entries(tree.tree_data.citations_by_depth)
+              {tree.citation_tree?.citations_by_depth && Object.entries(tree.citation_tree.citations_by_depth)
                 .sort(([a], [b]) => Number(a) - Number(b))
                 .map(([depth, citations]) => {
                   const depthNum = Number(depth);

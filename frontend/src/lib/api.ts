@@ -618,15 +618,19 @@ export interface CitationQualityTree {
   max_depth: number;
   current_depth: number;
   total_citations_analyzed: number;
-  good_count: number;
-  questionable_count: number;
-  overruled_count: number;
-  superseded_count: number;
-  uncertain_count: number;
-  overall_risk_score: number;
-  overall_risk_level: 'LOW' | 'MEDIUM' | 'HIGH';
-  risk_factors: string[];
-  tree_data: {
+  analysis_summary: {
+    good_count: number;
+    questionable_count: number;
+    overruled_count: number;
+    superseded_count: number;
+    uncertain_count: number;
+  };
+  overall_risk_assessment: {
+    score: number;
+    level: 'LOW' | 'MEDIUM' | 'HIGH';
+    factors: string[];
+  };
+  citation_tree: {
     root_opinion_id: number;
     citations_by_depth: Record<number, Array<{
       opinion_id: number;
@@ -644,6 +648,7 @@ export interface CitationQualityTree {
   }>;
   analysis_started_at: string;
   analysis_completed_at: string | null;
+  last_updated: string;
   execution_time_seconds: number;
   cache_hits: number;
   cache_misses: number;
