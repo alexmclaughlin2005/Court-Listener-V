@@ -254,14 +254,14 @@ export default function CitationNetworkPage() {
 
   // Callback ref to track when container is mounted
   const containerRefCallback = useCallback((node: HTMLDivElement | null) => {
-    console.log('containerRefCallback called:', { node: !!node, wasReady: containerReady })
+    console.log('containerRefCallback called:', { node: !!node })
     if (node) {
       cyRef.current = null // Reset cytoscape instance when container mounts
       setContainerReady(true)
     } else {
       setContainerReady(false)
     }
-  }, [containerReady])
+  }, []) // NO DEPENDENCIES - stable reference prevents infinite loop
 
   // Initialize Cytoscape when container and elements are ready
   useEffect(() => {
