@@ -10,6 +10,8 @@ import ReactFlow, {
   MarkerType,
   NodeProps,
   ConnectionLineType,
+  ReactFlowProvider,
+  useReactFlow,
 } from 'reactflow'
 import 'reactflow/dist/style.css'
 import 'reactflow/dist/base.css'
@@ -129,13 +131,14 @@ const nodeTypes = {
   custom: CustomNode,
 }
 
-export default function CitationNetworkPage() {
+function CitationNetworkContent() {
   const { opinionId } = useParams<{ opinionId: string }>()
   const [networkData, setNetworkData] = useState<CitationNetwork | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [depth, setDepth] = useState(1)
   const [maxNodes, setMaxNodes] = useState(50)
+  const reactFlowInstance = useReactFlow()
 
   // Deep analysis state
   const [deepAnalysis, setDeepAnalysis] = useState<any>(null)
@@ -348,12 +351,17 @@ export default function CitationNetworkPage() {
 
       setNodes(flowNodes)
       setEdges(flowEdges)
+
+      // Force ReactFlow to re-render and fit view after edges are added
+      setTimeout(() => {
+        reactFlowInstance?.fitView({ padding: 0.2 })
+      }, 100)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load citation network')
     } finally {
       setLoading(false)
     }
-  }, [opinionId, depth, maxNodes, setNodes, setEdges])
+  }, [opinionId, depth, maxNodes, setNodes, setEdges, reactFlowInstance])
 
   useEffect(() => {
     fetchNetwork()
@@ -741,5 +749,13 @@ export default function CitationNetworkPage() {
         onClose={() => setShowMethodology(false)}
       />
     </div>
+  )
+}
+
+export default function CitationNetworkPage() {
+  return (
+    <ReactFlowProvider>
+      <CitationNetworkContent />
+    </ReactFlowProvider>
   )
 }
