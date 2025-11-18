@@ -2,7 +2,7 @@
 API v1 Router - aggregates all API routes
 """
 from fastapi import APIRouter
-from app.api.v1 import citations, search, import_routes, bulk_import, treatment, admin, opinions, citation_sync, ai_analysis
+from app.api.v1 import citations, search, import_routes, bulk_import, treatment, admin, opinions, citation_sync, ai_analysis, citation_quality
 
 api_router = APIRouter()
 
@@ -11,6 +11,7 @@ api_router.include_router(search.router, prefix="/search", tags=["search"])
 api_router.include_router(citations.router, prefix="/citations", tags=["citations"])
 api_router.include_router(treatment.router, prefix="/treatment", tags=["treatment"])
 api_router.include_router(ai_analysis.router, prefix="/ai-analysis", tags=["ai-analysis"])
+api_router.include_router(citation_quality.router, prefix="/citation-quality", tags=["citation-quality"])
 api_router.include_router(import_routes.router, prefix="/import", tags=["import"])
 api_router.include_router(bulk_import.router, prefix="/bulk", tags=["bulk-import"])
 api_router.include_router(admin.router, prefix="/admin", tags=["admin"])

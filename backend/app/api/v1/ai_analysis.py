@@ -2,11 +2,7 @@
 AI Analysis API - AI-powered citation risk analysis endpoints
 """
 from fastapi import APIRouter, HTTPException, Depends
-from fastapi.responses import StreamingResponse
 from sqlalchemy.orm import Session
-from typing import Optional
-import json
-import asyncio
 
 from app.core.database import get_db
 from app.models import Opinion, OpinionCluster, CitationTreatment, Parenthetical
@@ -25,6 +21,8 @@ async def analyze_opinion_risk(
     Get AI-powered analysis of citation risk for an opinion
 
     Provides detailed insights about:
+    - Opinion text quality assessment
+    - Overturn status determination (OVERTURNED vs QUESTIONED)
     - Why the case is at risk
     - What legal theories might be impacted
     - The connection between citing and cited cases
@@ -32,7 +30,7 @@ async def analyze_opinion_risk(
 
     Args:
         opinion_id: The opinion to analyze
-        quick: If True, uses Claude 3.5 Haiku for fast analysis (~2-5s).
+        quick: If True, uses Claude Haiku 4.5 for fast analysis (~2-5s).
                If False, uses Claude Sonnet 4.5 for comprehensive analysis (~10-30s).
 
     Requires ANTHROPIC_API_KEY environment variable to be set.
@@ -128,8 +126,8 @@ async def analyze_opinion_risk(
         'neutral_count': risk_summary.neutral_count
     }
 
-    # Call AI analyzer - returns a generator for streaming
-    stream_generator = await analyzer.analyze_citation_risk(
+    # Call AI analyzer - returns complete analysis
+    result = await analyzer.analyze_citation_risk(
         opinion_text=opinion_text,
         case_name=case_name,
         risk_summary=risk_summary_dict,
@@ -138,42 +136,17 @@ async def analyze_opinion_risk(
         use_quick_analysis=quick
     )
 
-    # Create streaming response
-    async def generate():
-        """Generate Server-Sent Events stream"""
-        # Send initial metadata
-        initial_data = {
-            "type": "start",
-            "opinion_id": opinion_id,
-            "case_name": case_name,
-            "risk_summary": risk_summary_dict,
-            "citing_cases_count": len(citing_cases)
-        }
-        yield f"data: {json.dumps(initial_data)}\n\n"
-        await asyncio.sleep(0)  # Force flush
-
-        # Stream text chunks
-        for chunk in stream_generator:
-            if isinstance(chunk, dict):
-                # Metadata or error
-                yield f"data: {json.dumps(chunk)}\n\n"
-            else:
-                # Text chunk
-                yield f"data: {json.dumps({'type': 'text', 'content': chunk})}\n\n"
-            await asyncio.sleep(0)  # Force flush after each chunk
-
-        # Send done signal
-        yield f"data: {json.dumps({'type': 'done'})}\n\n"
-
-    return StreamingResponse(
-        generate(),
-        media_type="text/event-stream",
-        headers={
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "X-Accel-Buffering": "no"  # Disable nginx buffering
-        }
-    )
+    # Return standard JSON response
+    return {
+        "opinion_id": opinion_id,
+        "case_name": case_name,
+        "risk_summary": risk_summary_dict,
+        "citing_cases_count": len(citing_cases),
+        "analysis": result.get("analysis") if result else None,
+        "model": result.get("model") if result else None,
+        "usage": result.get("usage") if result else None,
+        "error": result.get("error") if result else None
+    }
 
 
 @router.get("/status")
