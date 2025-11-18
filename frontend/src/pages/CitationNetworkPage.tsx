@@ -162,6 +162,10 @@ export default function CitationNetworkPage() {
   // TEMPORARILY DISABLED - Cytoscape elements generation
   // @ts-ignore - unused during temporary disable
   const cytoscapeElements = useMemo((): any[] => {
+    // Visualization disabled - return empty array immediately
+    return []
+
+    /* DISABLED CODE - kept for future re-enablement
     if (!networkData) {
       console.warn('No network data available')
       return []
@@ -169,7 +173,7 @@ export default function CitationNetworkPage() {
 
     console.log('Network data structure:', networkData)
 
-    const elements: cytoscape.ElementDefinition[] = []
+    const elements: any[] = []
     const nodeIds = new Set<string>()
 
     // Check if nodes exist and is an array
@@ -243,7 +247,8 @@ export default function CitationNetworkPage() {
     console.log('Final elements array:', JSON.stringify(elements, null, 2))
 
     return elements
-  }, [networkData, opinionId])
+    */
+  }, [])
 
   // TEMPORARILY DISABLED - Node click handler
   // @ts-ignore - unused during temporary disable
