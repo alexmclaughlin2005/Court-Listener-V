@@ -1,144 +1,106 @@
-import { useState, useEffect, useCallback, memo } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
-import ReactFlow, {
-  Node,
-  Edge,
-  Controls,
-  Background,
-  useNodesState,
-  useEdgesState,
-  MarkerType,
-  NodeProps,
-  ConnectionLineType,
-  ReactFlowProvider,
-  useReactFlow,
-} from 'reactflow'
-import 'reactflow/dist/style.css'
-import 'reactflow/dist/base.css'
+import CytoscapeComponent from 'react-cytoscapejs'
+import cytoscape from 'cytoscape'
 import { citationAPI, CitationNetwork } from '../lib/api'
 import TreatmentBadge from '../components/TreatmentBadge'
 import CaseDetailFlyout from '../components/CaseDetailFlyout'
 import MethodologyModal from '../components/MethodologyModal'
 
-// Custom node component with treatment badge and depth indicator
-const CustomNode = memo(({ data }: NodeProps) => {
-  const TREATMENT_ICONS: Record<string, string> = {
-    OVERRULED: '⛔',
-    REVERSED: '🔴',
-    VACATED: '⭕',
-    CRITICIZED: '🟠',
-    QUESTIONED: '🟡',
-    AFFIRMED: '✅',
-    FOLLOWED: '🟢',
-    DISTINGUISHED: '🔵',
-    CITED: '📄',
-    UNKNOWN: '❓',
-  }
+// Cytoscape stylesheet for citation network
+const getCytoscapeStylesheet = (): any[] => [
+  {
+    selector: 'node',
+    style: {
+      'background-color': '#3b82f6',
+      'label': 'data(label)',
+      'color': '#ffffff',
+      'text-valign': 'center',
+      'text-halign': 'center',
+      'font-size': '12px',
+      'font-weight': 'bold',
+      'text-wrap': 'wrap',
+      'text-max-width': '180px',
+      'width': '60px',
+      'height': '60px',
+      'border-width': '3px',
+      'border-color': '#1e293b',
+      'text-outline-width': '2px',
+      'text-outline-color': '#1e293b',
+    } as any,
+  },
+  {
+    selector: 'node[nodeType="center"]',
+    style: {
+      'background-color': '#3b82f6',
+      'width': '80px',
+      'height': '80px',
+      'border-width': '4px',
+      'font-size': '14px',
+    } as any,
+  },
+  {
+    selector: 'node[nodeType="outbound"]',
+    style: {
+      'background-color': '#f59e0b',
+    } as any,
+  },
+  {
+    selector: 'node[nodeType="inbound"]',
+    style: {
+      'background-color': '#10b981',
+    } as any,
+  },
+  {
+    selector: 'node[treatment]',
+    style: {
+      'border-width': '5px',
+      'border-color': '#ef4444',
+    } as any,
+  },
+  {
+    selector: 'edge',
+    style: {
+      'width': 4,
+      'line-color': '#f59e0b',
+      'target-arrow-color': '#f59e0b',
+      'target-arrow-shape': 'triangle',
+      'curve-style': 'bezier',
+      'arrow-scale': 1.5,
+    } as any,
+  },
+  {
+    selector: 'edge[edgeType="inbound"]',
+    style: {
+      'line-color': '#10b981',
+      'target-arrow-color': '#10b981',
+    } as any,
+  },
+  {
+    selector: 'node:selected',
+    style: {
+      'border-width': '6px',
+      'border-color': '#2563eb',
+    } as any,
+  },
+  {
+    selector: 'edge:selected',
+    style: {
+      'width': 6,
+      'line-color': '#2563eb',
+      'target-arrow-color': '#2563eb',
+    } as any,
+  },
+]
 
-  // Truncate long case names
-  const truncateText = (text: string, maxLength: number = 40) => {
-    if (text.length <= maxLength) return text
-    return text.substring(0, maxLength) + '...'
-  }
-
-  const fullCaseName = data.label || ''
-  const displayName = truncateText(fullCaseName)
-
-  // Get treatment label for tooltip
-  const treatmentLabel = data.treatment
-    ? `${data.treatment.type} (${data.treatment.severity})`
-    : ''
-
-  // Get depth for display
-  const nodeDepth = data.depth || 0
-
-  return (
-    <div
-      style={{
-        padding: '12px',
-        borderRadius: '8px',
-        minWidth: '180px',
-        maxWidth: '220px',
-        textAlign: 'center',
-        position: 'relative',
-        cursor: 'pointer',
-        transition: 'transform 0.2s',
-      }}
-      title={`${fullCaseName}${treatmentLabel ? '\n' + treatmentLabel : ''}${nodeDepth > 0 ? '\nDepth: ' + nodeDepth : ''}`}
-    >
-      {data.treatment && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '-12px',
-            right: '-12px',
-            fontSize: '24px',
-            background: 'white',
-            borderRadius: '50%',
-            width: '40px',
-            height: '40px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 4px 6px rgba(0,0,0,0.4)',
-            border: '3px solid #1e293b',
-            zIndex: 10,
-          }}
-          title={treatmentLabel}
-        >
-          {TREATMENT_ICONS[data.treatment.type] || '❓'}
-        </div>
-      )}
-      {nodeDepth > 0 && (
-        <div
-          style={{
-            position: 'absolute',
-            top: '-8px',
-            left: '-8px',
-            fontSize: '10px',
-            fontWeight: 'bold',
-            background: '#1e293b',
-            color: 'white',
-            borderRadius: '50%',
-            width: '24px',
-            height: '24px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 2px 4px rgba(0,0,0,0.3)',
-            border: '2px solid white',
-            zIndex: 10,
-          }}
-          title={`Depth: ${nodeDepth} level${nodeDepth > 1 ? 's' : ''} from center`}
-        >
-          {nodeDepth}
-        </div>
-      )}
-      <div style={{
-        fontSize: '11px',
-        fontWeight: '600',
-        color: 'white',
-        lineHeight: '1.3',
-        wordWrap: 'break-word',
-      }}>
-        {displayName}
-      </div>
-    </div>
-  )
-})
-
-const nodeTypes = {
-  custom: CustomNode,
-}
-
-function CitationNetworkContent() {
+export default function CitationNetworkPage() {
   const { opinionId } = useParams<{ opinionId: string }>()
   const [networkData, setNetworkData] = useState<CitationNetwork | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [depth, setDepth] = useState(1)
   const [maxNodes, setMaxNodes] = useState(50)
-  const reactFlowInstance = useReactFlow()
+  const cyRef = useRef<cytoscape.Core | null>(null)
 
   // Deep analysis state
   const [deepAnalysis, setDeepAnalysis] = useState<any>(null)
@@ -147,254 +109,107 @@ function CitationNetworkContent() {
 
   // Flyout state
   const [selectedCase, setSelectedCase] = useState<{ clusterId: number; opinionId: number } | null>(null)
-  const [isFlyoutOpen, setIsFlyoutOpen] = useState(false)
 
   // Methodology modal state
   const [showMethodology, setShowMethodology] = useState(false)
 
-  const [nodes, setNodes, onNodesChange] = useNodesState([])
-  const [edges, setEdges, onEdgesChange] = useEdgesState([])
-
-  // Handle node click
-  const onNodeClick = useCallback((_event: React.MouseEvent, node: Node) => {
-    const nodeData = node.data
-    setSelectedCase({
-      clusterId: nodeData.cluster_id,
-      opinionId: nodeData.opinion_id
-    })
-    setIsFlyoutOpen(true)
-  }, [])
-
-  // Handle flyout close
-  const handleCloseFlyout = useCallback(() => {
-    setIsFlyoutOpen(false)
-    // Keep selectedCase for a moment to allow smooth closing animation
-    setTimeout(() => setSelectedCase(null), 300)
-  }, [])
-
-  // Fetch deep analysis
-  const fetchDeepAnalysis = useCallback(async () => {
-    if (!opinionId) return
-
-    setLoadingAnalysis(true)
-    try {
-      const analysis = await citationAPI.getDeepAnalysis(parseInt(opinionId), { depth: 4 })
-      setDeepAnalysis(analysis)
-      // Automatically show details if there are warnings
-      if (analysis.negative_treatment_count > 0) {
-        setShowDeepAnalysis(true)
-      }
-    } catch (err) {
-      console.error('Failed to fetch deep analysis:', err)
-    } finally {
-      setLoadingAnalysis(false)
-    }
-  }, [opinionId])
-
   const fetchNetwork = useCallback(async () => {
     if (!opinionId) return
 
-    setLoading(true)
-    setError(null)
-
     try {
-      const data = await citationAPI.getNetwork(parseInt(opinionId), {
+      setLoading(true)
+      const data = await citationAPI.getNetwork(Number(opinionId), {
         depth,
         max_nodes: maxNodes,
       })
       setNetworkData(data)
-
-      // Helper function to get node color based on treatment
-      const getNodeColor = (nodeData: typeof data.nodes[0]): string => {
-        // Center node is always blue
-        if (nodeData.node_type === 'center') {
-          return '#3b82f6' // blue
-        }
-
-        // If node has treatment data, color based on severity
-        if (nodeData.treatment) {
-          switch (nodeData.treatment.severity) {
-            case 'NEGATIVE':
-              return '#ef4444' // red
-            case 'POSITIVE':
-              return '#10b981' // green
-            case 'NEUTRAL':
-              return '#6b7280' // gray
-            default:
-              return nodeData.node_type === 'citing' ? '#10b981' : '#f59e0b'
-          }
-        }
-
-        // Default colors based on node type
-        return nodeData.node_type === 'citing' ? '#10b981' : '#f59e0b'
-      }
-
-      // Check if we have valid data
-      if (!data.nodes || data.nodes.length === 0) {
-        setError('No citation network data available for this opinion')
-        setLoading(false)
-        return
-      }
-
-      // Calculate depth for each node from edges
-      const nodeDepths = new Map<number, number>()
-      nodeDepths.set(data.center_opinion_id, 0)
-
-      // Build adjacency map from edges
-      const adjacencyMap = new Map<number, Array<{ node: number; depth: number }>>()
-      data.edges.forEach(edge => {
-        if (edge.source === data.center_opinion_id) {
-          // Outbound: target is at depth 1+
-          if (!adjacencyMap.has(edge.source)) adjacencyMap.set(edge.source, [])
-          adjacencyMap.get(edge.source)!.push({ node: edge.target, depth: edge.depth || 1 })
-        } else if (edge.target === data.center_opinion_id) {
-          // Inbound: source is at depth 1+
-          if (!adjacencyMap.has(edge.target)) adjacencyMap.set(edge.target, [])
-          adjacencyMap.get(edge.target)!.push({ node: edge.source, depth: edge.depth || 1 })
-        }
-      })
-
-      // BFS to assign depths
-      const queue = [data.center_opinion_id]
-      const visited = new Set([data.center_opinion_id])
-
-      while (queue.length > 0) {
-        const current = queue.shift()!
-        const neighbors = adjacencyMap.get(current) || []
-
-        neighbors.forEach(({ node, depth }) => {
-          if (!visited.has(node)) {
-            visited.add(node)
-            nodeDepths.set(node, depth)
-            queue.push(node)
-          }
-        })
-      }
-
-      // Group nodes by depth for layout
-      const nodesByDepth = new Map<number, typeof data.nodes>()
-      data.nodes.forEach(node => {
-        const depth = nodeDepths.get(node.opinion_id) || 0
-        if (!nodesByDepth.has(depth)) nodesByDepth.set(depth, [])
-        nodesByDepth.get(depth)!.push(node)
-      })
-
-      // Convert API data to React Flow format with depth-based layout
-      const flowNodes: Node[] = []
-
-      nodesByDepth.forEach((nodesAtDepth, depthLevel) => {
-        const nodesCount = nodesAtDepth.length
-        const layerRadius = depthLevel === 0 ? 0 : 200 + (depthLevel * 250)
-
-        nodesAtDepth.forEach((node, indexInDepth) => {
-          // Calculate position based on depth level
-          let x = 0, y = 0
-
-          if (depthLevel === 0) {
-            // Center node at origin
-            x = 0
-            y = 0
-          } else {
-            // Arrange in circular layout at this depth
-            const angle = (indexInDepth / nodesCount) * 2 * Math.PI - Math.PI / 2
-            x = layerRadius * Math.cos(angle)
-            y = layerRadius * Math.sin(angle)
-          }
-
-          const nodeColor = getNodeColor(node)
-          const nodeDepth = nodeDepths.get(node.opinion_id) || 0
-
-          flowNodes.push({
-            id: node.opinion_id.toString(),
-            type: 'custom',
-            data: {
-              label: node.case_name_short || node.case_name || 'Unknown Case',
-              ...node,
-              depth: nodeDepth,
-            },
-            position: { x, y },
-            style: {
-              background: nodeColor,
-              color: 'white',
-              border: node.treatment ? '3px solid #1e293b' : '2px solid #1e293b',
-              borderRadius: '8px',
-              boxShadow: node.treatment ? '0 4px 6px -1px rgba(0, 0, 0, 0.3)' : undefined,
-            },
-          })
-        })
-      })
-
-      const flowEdges: Edge[] = (data.edges || []).map((edge, index) => {
-        const edgeColor = edge.type === 'inbound' ? '#10b981' : '#f59e0b'
-        return {
-          id: `edge-${index}`,
-          source: edge.source.toString(),
-          target: edge.target.toString(),
-          type: 'default',  // Changed to 'default' which is most reliable
-          animated: false,
-          label: edge.depth > 1 ? `D${edge.depth}` : undefined,
-          labelStyle: { fontSize: 11, fill: '#374151', fontWeight: 600 },
-          labelBgStyle: { fill: 'white', fillOpacity: 0.8 },
-          style: {
-            stroke: edgeColor,
-            strokeWidth: 5,
-            strokeOpacity: 1,
-          },
-          markerEnd: {
-            type: MarkerType.ArrowClosed,
-            color: edgeColor,
-            width: 30,
-            height: 30,
-          },
-          zIndex: 1,
-        }
-      })
-
-      console.log(`Created ${flowEdges.length} edges:`, flowEdges)
-      console.log(`Created ${flowNodes.length} nodes`)
-
-      // Verify edge connections
-      const nodeIds = new Set(flowNodes.map(n => n.id))
-      const invalidEdges = flowEdges.filter(e => !nodeIds.has(e.source) || !nodeIds.has(e.target))
-      if (invalidEdges.length > 0) {
-        console.warn('Invalid edges (missing nodes):', invalidEdges)
-      }
-
-      // Set nodes first, then edges with a slight delay to ensure nodes are rendered
-      setNodes(flowNodes)
-      setTimeout(() => {
-        setEdges(flowEdges)
-        console.log('Edges set after node render')
-
-        // Force ReactFlow to fit view after edges are added
-        setTimeout(() => {
-          reactFlowInstance?.fitView({ padding: 0.2 })
-          console.log('Fit view applied')
-        }, 50)
-      }, 50)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to load citation network')
     } finally {
       setLoading(false)
     }
-  }, [opinionId, depth, maxNodes, setNodes, setEdges])  // Removed reactFlowInstance from dependencies
+  }, [opinionId, depth, maxNodes])
+
+  const fetchDeepAnalysis = useCallback(async () => {
+    if (!opinionId || loadingAnalysis) return
+
+    try {
+      setLoadingAnalysis(true)
+      const analysis = await citationAPI.getDeepAnalysis(Number(opinionId), { depth })
+      setDeepAnalysis(analysis)
+      setShowDeepAnalysis(true)
+    } catch (err) {
+      console.error('Failed to load deep analysis:', err)
+    } finally {
+      setLoadingAnalysis(false)
+    }
+  }, [opinionId, depth, loadingAnalysis])
 
   useEffect(() => {
     fetchNetwork()
   }, [fetchNetwork])
 
-  // Debug: Log when edges change
-  useEffect(() => {
-    console.log('Edges state updated:', edges.length, 'edges')
-    console.log('Nodes state updated:', nodes.length, 'nodes')
-  }, [edges, nodes])
-
-  // Automatically fetch deep analysis when page loads
   useEffect(() => {
     if (opinionId && !deepAnalysis && !loadingAnalysis) {
       fetchDeepAnalysis()
     }
   }, [opinionId, deepAnalysis, loadingAnalysis, fetchDeepAnalysis])
+
+  // Convert API data to Cytoscape elements
+  const getCytoscapeElements = (): cytoscape.ElementDefinition[] => {
+    if (!networkData) return []
+
+    const elements: cytoscape.ElementDefinition[] = []
+
+    // Add nodes
+    Object.entries(networkData.nodes).forEach(([layerKey, nodesArray]) => {
+      if (Array.isArray(nodesArray)) {
+        nodesArray.forEach((node) => {
+          const nodeType = node.opinion_id === Number(opinionId) ? 'center' : layerKey.startsWith('inbound') ? 'inbound' : 'outbound'
+
+          elements.push({
+            data: {
+              id: node.opinion_id.toString(),
+              label: node.case_name_short || node.case_name || 'Unknown Case',
+              nodeType,
+              treatment: node.treatment?.type || null,
+              clusterId: node.cluster_id,
+              opinionId: node.opinion_id,
+            },
+          })
+        })
+      }
+    })
+
+    // Add edges
+    if (networkData.edges) {
+      networkData.edges.forEach((edge, index) => {
+        elements.push({
+          data: {
+            id: `edge-${index}`,
+            source: edge.source.toString(),
+            target: edge.target.toString(),
+            edgeType: edge.type,
+            depth: edge.depth,
+          },
+        })
+      })
+    }
+
+    return elements
+  }
+
+  const handleNodeClick = (event: cytoscape.EventObject) => {
+    const node = event.target
+    const data = node.data()
+
+    if (data.clusterId && data.opinionId) {
+      setSelectedCase({
+        clusterId: data.clusterId,
+        opinionId: data.opinionId,
+      })
+    }
+  }
 
   if (loading) {
     return (
@@ -413,18 +228,20 @@ function CitationNetworkContent() {
     return (
       <div className="min-h-screen bg-gray-50">
         <div className="container mx-auto px-4 py-8">
-          <div className="mb-8">
-            <Link to="/search" className="text-blue-600 hover:text-blue-700">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-red-900 mb-2">Error Loading Network</h3>
+            <p className="text-red-700">{error || 'Unknown error occurred'}</p>
+            <Link to="/search" className="mt-4 inline-block text-blue-600 hover:text-blue-700">
               ← Back to Search
             </Link>
-          </div>
-          <div className="bg-red-50 border border-red-200 rounded-lg p-6">
-            <p className="text-red-800">{error || 'Citation network not found'}</p>
           </div>
         </div>
       </div>
     )
   }
+
+  const totalNodes = Object.values(networkData.nodes).reduce((sum, layer) => sum + (Array.isArray(layer) ? layer.length : 0), 0)
+  const totalEdges = networkData.edges?.length || 0
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -434,85 +251,75 @@ function CitationNetworkContent() {
           <Link to="/search" className="text-blue-600 hover:text-blue-700 mb-4 inline-block">
             ← Back to Search
           </Link>
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Citation Network</h1>
-          <p className="text-gray-600">
-            Showing {networkData.node_count} cases and {networkData.edge_count} citation relationships
+          <h1 className="text-3xl font-bold text-gray-900">Citation Network</h1>
+          <p className="text-gray-600 mt-2">
+            Showing {totalNodes} cases and {totalEdges} citation relationships
           </p>
         </div>
 
         {/* Controls */}
-        <div className="bg-white rounded-lg shadow p-4 mb-6">
-          <div className="flex flex-wrap gap-6">
+        <div className="bg-white rounded-lg shadow p-6 mb-6">
+          <div className="flex flex-wrap items-center gap-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Depth Level
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Depth Level</label>
               <select
                 value={depth}
-                onChange={(e) => setDepth(parseInt(e.target.value))}
-                className="px-3 py-2 border rounded-lg"
+                onChange={(e) => setDepth(Number(e.target.value))}
+                className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
               >
-                <option value="1">1 Level</option>
-                <option value="2">2 Levels</option>
-                <option value="3">3 Levels</option>
-                <option value="4">4 Levels</option>
-                <option value="5">5 Levels</option>
+                <option value={1}>1 Level</option>
+                <option value={2}>2 Levels</option>
+                <option value={3}>3 Levels</option>
+                <option value={4}>4 Levels</option>
               </select>
             </div>
-
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Max Nodes
-              </label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Max Nodes</label>
               <select
                 value={maxNodes}
-                onChange={(e) => setMaxNodes(parseInt(e.target.value))}
-                className="px-3 py-2 border rounded-lg"
+                onChange={(e) => setMaxNodes(Number(e.target.value))}
+                className="border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
               >
-                <option value="25">25</option>
-                <option value="50">50</option>
-                <option value="100">100</option>
-                <option value="200">200</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+                <option value={100}>100</option>
+                <option value={200}>200</option>
               </select>
             </div>
-
-            <div className="flex items-end gap-3">
-              <button
-                onClick={fetchNetwork}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-              >
-                Refresh
-              </button>
-              <button
-                onClick={fetchDeepAnalysis}
-                disabled={loadingAnalysis}
-                className={`px-4 py-2 rounded-lg transition font-medium ${
-                  loadingAnalysis
-                    ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                    : 'bg-purple-600 text-white hover:bg-purple-700'
-                }`}
-              >
-                {loadingAnalysis ? 'Analyzing...' : 'Risk Analysis'}
-              </button>
-            </div>
+            <button
+              onClick={fetchNetwork}
+              className="mt-6 bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition"
+            >
+              Refresh
+            </button>
+            <button
+              onClick={fetchDeepAnalysis}
+              disabled={loadingAnalysis}
+              className="mt-6 bg-purple-600 text-white px-6 py-2 rounded-lg hover:bg-purple-700 transition disabled:opacity-50"
+            >
+              {loadingAnalysis ? 'Analyzing...' : 'Risk Analysis'}
+            </button>
           </div>
 
-          {/* Risk Analysis Badge */}
+          {/* Risk Assessment */}
           {deepAnalysis && (
-            <div className="mt-4 pt-4 border-t">
-              <div className="flex items-center gap-3">
+            <div className="mt-6 pt-6 border-t">
+              <div className="flex items-center justify-between">
                 <span className="text-sm font-medium text-gray-700">Citation Risk:</span>
-                <div className={`px-3 py-1 rounded-full text-sm font-semibold ${
-                  deepAnalysis.risk_assessment.level === 'HIGH'
-                    ? 'bg-red-100 text-red-800'
-                    : deepAnalysis.risk_assessment.level === 'MEDIUM'
-                    ? 'bg-yellow-100 text-yellow-800'
-                    : 'bg-green-100 text-green-800'
-                }`}>
-                  {deepAnalysis.risk_assessment.level} RISK ({deepAnalysis.risk_assessment.score}/100)
-                </div>
+                <TreatmentBadge
+                  treatment={{
+                    type: deepAnalysis.risk_assessment.level,
+                    severity: deepAnalysis.risk_assessment.level.toLowerCase(),
+                    confidence: deepAnalysis.risk_assessment.score / 100,
+                  }}
+                  size="md"
+                  showConfidence={true}
+                />
                 <span className="text-sm text-gray-600">
                   {deepAnalysis.negative_treatment_count} of {deepAnalysis.total_cases_analyzed} cases have negative treatment
+                </span>
+                <span className="text-sm text-gray-600">
+                  Score: {deepAnalysis.risk_assessment.score}/100
                 </span>
                 <button
                   onClick={() => setShowMethodology(true)}
@@ -550,41 +357,32 @@ function CitationNetworkContent() {
 
         {/* Network Graph */}
         <div className="bg-white rounded-lg shadow" style={{ height: '600px' }}>
-          <ReactFlow
-            nodes={nodes}
-            edges={edges}
-            nodeTypes={nodeTypes}
-            onNodesChange={onNodesChange}
-            onEdgesChange={onEdgesChange}
-            onNodeClick={onNodeClick}
-            fitView
-            fitViewOptions={{ padding: 0.2 }}
-            minZoom={0.1}
-            maxZoom={2}
-            attributionPosition="bottom-right"
-            elevateEdgesOnSelect={true}
-            connectionLineType={ConnectionLineType.Straight}
-            defaultEdgeOptions={{
-              type: 'default',
-              style: {
-                strokeWidth: 5,
-                stroke: '#f59e0b',
-                strokeOpacity: 1,
-              },
-              animated: false,
+          <CytoscapeComponent
+            elements={getCytoscapeElements()}
+            style={{ width: '100%', height: '100%' }}
+            stylesheet={getCytoscapeStylesheet()}
+            layout={{
+              name: 'cose',
+              animate: true,
+              animationDuration: 500,
+              nodeRepulsion: 8000,
+              idealEdgeLength: 100,
+              edgeElasticity: 100,
+              nestingFactor: 1.2,
+              gravity: 1,
+              numIter: 1000,
+              initialTemp: 200,
+              coolingFactor: 0.95,
+              minTemp: 1.0,
             }}
-            proOptions={{ hideAttribution: true }}
-            elementsSelectable={true}
-            selectNodesOnDrag={false}
-            edgesUpdatable={false}
-            edgesFocusable={true}
-            nodesDraggable={true}
-            nodesConnectable={false}
-            nodesFocusable={true}
-          >
-            <Controls />
-            <Background color="#93c5fd" gap={16} />
-          </ReactFlow>
+            cy={(cy: cytoscape.Core) => {
+              cyRef.current = cy
+              cy.on('tap', 'node', handleNodeClick)
+              cy.on('layoutstop', () => {
+                cy.fit(undefined, 50)
+              })
+            }}
+          />
         </div>
 
         {/* Deep Analysis Details */}
@@ -606,85 +404,95 @@ function CitationNetworkContent() {
                 <p className="text-sm text-red-600 mb-1">Negative Treatments</p>
                 <p className="text-2xl font-bold text-red-900">{deepAnalysis.negative_treatment_count}</p>
               </div>
-              <div className={`p-4 rounded-lg ${
-                deepAnalysis.risk_assessment.level === 'HIGH' ? 'bg-red-50' :
-                deepAnalysis.risk_assessment.level === 'MEDIUM' ? 'bg-yellow-50' :
-                'bg-green-50'
-              }`}>
-                <p className={`text-sm mb-1 ${
-                  deepAnalysis.risk_assessment.level === 'HIGH' ? 'text-red-600' :
-                  deepAnalysis.risk_assessment.level === 'MEDIUM' ? 'text-yellow-600' :
-                  'text-green-600'
-                }`}>Risk Score</p>
-                <p className={`text-2xl font-bold ${
-                  deepAnalysis.risk_assessment.level === 'HIGH' ? 'text-red-900' :
-                  deepAnalysis.risk_assessment.level === 'MEDIUM' ? 'text-yellow-900' :
-                  'text-green-900'
-                }`}>{deepAnalysis.risk_assessment.score}/100</p>
+              <div
+                className={`p-4 rounded-lg ${
+                  deepAnalysis.risk_assessment.level === 'HIGH'
+                    ? 'bg-red-50'
+                    : deepAnalysis.risk_assessment.level === 'MEDIUM'
+                    ? 'bg-yellow-50'
+                    : 'bg-green-50'
+                }`}
+              >
+                <p
+                  className={`text-sm mb-1 ${
+                    deepAnalysis.risk_assessment.level === 'HIGH'
+                      ? 'text-red-600'
+                      : deepAnalysis.risk_assessment.level === 'MEDIUM'
+                      ? 'text-yellow-600'
+                      : 'text-green-600'
+                  }`}
+                >
+                  Risk Score
+                </p>
+                <p
+                  className={`text-2xl font-bold ${
+                    deepAnalysis.risk_assessment.level === 'HIGH'
+                      ? 'text-red-900'
+                      : deepAnalysis.risk_assessment.level === 'MEDIUM'
+                      ? 'text-yellow-900'
+                      : 'text-green-900'
+                  }`}
+                >
+                  {deepAnalysis.risk_assessment.score}/100
+                </p>
               </div>
             </div>
 
-            {/* Treatment Warnings */}
-            {deepAnalysis.treatment_warnings.length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Treatment Warnings</h3>
-                <div className="space-y-2">
-                  {deepAnalysis.treatment_warnings.map((warning: any, index: number) => (
-                    <div key={index} className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-lg">
-                      <span className="text-2xl">⚠️</span>
-                      <div className="flex-1">
-                        <p className="font-medium text-gray-900">{warning.case_name}</p>
-                        <p className="text-sm text-gray-600 mt-1">
-                          <span className="font-semibold text-red-700">{warning.treatment_type}</span>
-                          {' • '}Depth: {warning.depth}
-                          {' • '}Confidence: {Math.round((warning.confidence || 0) * 100)}%
-                        </p>
-                      </div>
-                    </div>
+            {/* Risk Assessment Details */}
+            <div className="mb-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-3">Risk Assessment</h3>
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <p className="text-gray-700 mb-2">
+                  <span className="font-semibold">Level:</span> {deepAnalysis.risk_assessment.level}
+                </p>
+                <p className="text-gray-700 mb-2">
+                  <span className="font-semibold">Confidence:</span> {(deepAnalysis.risk_assessment.confidence * 100).toFixed(1)}%
+                </p>
+                <p className="text-gray-700">
+                  <span className="font-semibold">Factors:</span>
+                </p>
+                <ul className="list-disc list-inside ml-4 mt-2 text-gray-600">
+                  {deepAnalysis.risk_assessment.factors.map((factor: string, idx: number) => (
+                    <li key={idx}>{factor}</li>
                   ))}
-                </div>
+                </ul>
               </div>
-            )}
+            </div>
 
-            {/* Warnings by Type */}
-            {Object.keys(deepAnalysis.warnings_by_type).length > 0 && (
-              <div className="mb-6">
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Warnings by Treatment Type</h3>
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {Object.entries(deepAnalysis.warnings_by_type).map(([type, warnings]: [string, any]) => (
-                    <div key={type} className="bg-gray-50 p-4 rounded-lg border">
-                      <p className="font-semibold text-gray-900 mb-2">{type}</p>
-                      <p className="text-2xl font-bold text-red-600">{warnings.length}</p>
-                      <p className="text-sm text-gray-600 mt-1">cases affected</p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Problematic Citation Chains */}
-            {deepAnalysis.problematic_citation_chains.length > 0 && (
+            {/* High Risk Cases */}
+            {deepAnalysis.high_risk_cases && deepAnalysis.high_risk_cases.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-900 mb-3">Problematic Citation Chains</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">High Risk Cases in Network</h3>
                 <div className="space-y-3">
-                  {deepAnalysis.problematic_citation_chains.slice(0, 5).map((chain: any, index: number) => (
-                    <div key={index} className="p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-                      <div className="flex items-center gap-2 mb-2">
-                        <span className="text-sm font-semibold text-gray-700">Chain Length:</span>
-                        <span className="text-sm text-gray-600">{chain.chain_length} cases</span>
-                      </div>
-                      <div className="text-sm text-gray-700">
-                        <p className="mb-1">
-                          <span className="font-medium">Starts at:</span> {chain.start_case?.case_name_short || chain.start_case?.case_name || 'Unknown'}
-                        </p>
-                        <p>
-                          <span className="font-medium text-red-700">Problem:</span> {chain.problem_case?.case_name_short || chain.problem_case?.case_name || 'Unknown'}
-                          {chain.problem_case?.treatment && (
-                            <span className="ml-2 px-2 py-1 bg-red-100 text-red-800 rounded text-xs font-semibold">
-                              {chain.problem_case.treatment.type}
-                            </span>
-                          )}
-                        </p>
+                  {deepAnalysis.high_risk_cases.map((riskCase: any, idx: number) => (
+                    <div key={idx} className="border border-red-200 bg-red-50 rounded-lg p-4">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <h4 className="font-semibold text-gray-900 mb-1">{riskCase.case_name}</h4>
+                          <p className="text-sm text-gray-600 mb-2">
+                            Opinion ID: {riskCase.opinion_id} | Depth: {riskCase.depth}
+                          </p>
+                          <TreatmentBadge
+                            treatment={{
+                              type: riskCase.treatment_type,
+                              severity: riskCase.severity,
+                              confidence: 0.9,
+                            }}
+                            size="sm"
+                            showIcon={true}
+                          />
+                        </div>
+                        <button
+                          onClick={() =>
+                            setSelectedCase({
+                              clusterId: riskCase.cluster_id,
+                              opinionId: riskCase.opinion_id,
+                            })
+                          }
+                          className="ml-4 text-blue-600 hover:text-blue-700 text-sm font-medium"
+                        >
+                          View Details →
+                        </button>
                       </div>
                     </div>
                   ))}
@@ -693,94 +501,20 @@ function CitationNetworkContent() {
             )}
           </div>
         )}
-
-        {/* Node Details */}
-        <div className="mt-6 bg-white rounded-lg shadow p-6">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Cases in Network</h2>
-          <div className="space-y-2 max-h-96 overflow-y-auto">
-            {networkData.nodes.map((node) => (
-              <div
-                key={node.opinion_id}
-                className="flex justify-between items-center p-3 border rounded hover:bg-gray-50 cursor-pointer transition"
-                onClick={() => {
-                  setSelectedCase({
-                    clusterId: node.cluster_id,
-                    opinionId: node.opinion_id
-                  })
-                  setIsFlyoutOpen(true)
-                }}
-              >
-                <div className="flex-1">
-                  <p className="font-medium text-gray-900">{node.case_name_short || node.case_name}</p>
-                  <p className="text-sm text-gray-600">
-                    {node.court_name} • {node.date_filed ? new Date(node.date_filed).getFullYear() : 'N/A'} • {node.citation_count} citations
-                  </p>
-                </div>
-                <div className="flex gap-2 items-center">
-                  {node.treatment && (
-                    <TreatmentBadge
-                      treatment={node.treatment}
-                      size="sm"
-                      showConfidence={false}
-                      showIcon={true}
-                    />
-                  )}
-                  <span
-                    className="px-2 py-1 text-xs rounded"
-                    style={{
-                      background: node.node_type === 'center'
-                        ? '#3b82f6'
-                        : node.node_type === 'citing'
-                        ? '#10b981'
-                        : '#f59e0b',
-                      color: 'white',
-                    }}
-                  >
-                    {node.node_type}
-                  </span>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setSelectedCase({
-                        clusterId: node.cluster_id,
-                        opinionId: node.opinion_id
-                      })
-                      setIsFlyoutOpen(true)
-                    }}
-                    className="text-blue-600 hover:text-blue-700 text-sm font-medium"
-                  >
-                    Quick View
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
       </div>
 
       {/* Case Detail Flyout */}
       {selectedCase && (
         <CaseDetailFlyout
+          isOpen={true}
           clusterId={selectedCase.clusterId}
           opinionId={selectedCase.opinionId}
-          isOpen={isFlyoutOpen}
-          onClose={handleCloseFlyout}
+          onClose={() => setSelectedCase(null)}
         />
       )}
 
       {/* Methodology Modal */}
-      <MethodologyModal
-        isOpen={showMethodology}
-        onClose={() => setShowMethodology(false)}
-      />
+      <MethodologyModal isOpen={showMethodology} onClose={() => setShowMethodology(false)} />
     </div>
-  )
-}
-
-export default function CitationNetworkPage() {
-  return (
-    <ReactFlowProvider>
-      <CitationNetworkContent />
-    </ReactFlowProvider>
   )
 }
