@@ -1,16 +1,15 @@
 /**
  * AIRiskAnalysis - AI-powered citation risk analysis component
  *
- * Displays an "Analyze with AI" button for cases with negative citation risk.
- * Uses Claude Sonnet 4.5 to provide detailed analysis of:
- * - Why the case is at risk
- * - Impact on legal theories
- * - Connection to citing cases
- * - Practical implications
+ * Auto-triggers quick analysis using Claude 3.5 Haiku on mount for instant preview.
+ * Provides "Deep Analysis" button to get comprehensive analysis with Claude Sonnet 4.5.
  *
- * @version 1.0.1
+ * - Quick Analysis (Haiku): Automatic, 2-5s, concise summary
+ * - Deep Analysis (Sonnet 4.5): Manual, 10-30s, comprehensive insights
+ *
+ * @version 1.1.0
  */
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { aiAnalysisAPI } from '../lib/api';
 
 interface AIRiskAnalysisProps {
@@ -26,25 +25,54 @@ export const AIRiskAnalysis: React.FC<AIRiskAnalysisProps> = ({
   severity,
   className = ''
 }) => {
-  const [analysis, setAnalysis] = useState<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [quickAnalysis, setQuickAnalysis] = useState<string | null>(null);
+  const [deepAnalysis, setDeepAnalysis] = useState<string | null>(null);
+  const [loadingQuick, setLoadingQuick] = useState(false);
+  const [loadingDeep, setLoadingDeep] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState(false);
+  const [model, setModel] = useState<string>('');
 
   // Only show for cases with negative citation risk
   if (severity !== 'NEGATIVE') {
     return null;
   }
 
-  const handleAnalyze = async () => {
-    setLoading(true);
+  // Auto-trigger quick analysis on mount
+  useEffect(() => {
+    const runQuickAnalysis = async () => {
+      setLoadingQuick(true);
+      setError(null);
+
+      try {
+        const result = await aiAnalysisAPI.analyzeRisk(opinionId, true); // quick=true
+
+        if (result.analysis) {
+          setQuickAnalysis(result.analysis);
+          setModel(result.model);
+          setExpanded(true); // Auto-expand to show quick analysis
+        }
+      } catch (err) {
+        // Don't show error for auto-triggered quick analysis
+        console.error('Quick analysis failed:', err);
+      } finally {
+        setLoadingQuick(false);
+      }
+    };
+
+    runQuickAnalysis();
+  }, [opinionId]);
+
+  const handleDeepAnalysis = async () => {
+    setLoadingDeep(true);
     setError(null);
 
     try {
-      const result = await aiAnalysisAPI.analyzeRisk(opinionId);
+      const result = await aiAnalysisAPI.analyzeRisk(opinionId, false); // quick=false
 
       if (result.analysis) {
-        setAnalysis(result.analysis);
+        setDeepAnalysis(result.analysis);
+        setModel(result.model);
         setExpanded(true);
       } else {
         setError('No analysis available');
@@ -56,68 +84,79 @@ export const AIRiskAnalysis: React.FC<AIRiskAnalysisProps> = ({
         setError('Failed to analyze case risk');
       }
     } finally {
-      setLoading(false);
+      setLoadingDeep(false);
     }
   };
 
+  // Determine which analysis to display
+  const currentAnalysis = deepAnalysis || quickAnalysis;
+  const isLoading = loadingQuick || loadingDeep;
+
   return (
     <div className={`bg-white rounded-lg border border-red-200 ${className}`}>
-      {/* Header with button */}
+      {/* Header with buttons */}
       <div className="px-6 py-4 bg-red-50 rounded-t-lg border-b border-red-200">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <span className="text-2xl">🤖</span>
             <div>
               <h3 className="text-lg font-semibold text-gray-900">AI Risk Analysis</h3>
-              <p className="text-sm text-gray-600">Powered by Claude Sonnet 4.5</p>
+              <p className="text-sm text-gray-600">
+                {model ? `Powered by ${model}` : 'Powered by Claude AI'}
+                {quickAnalysis && !deepAnalysis && ' - Quick Preview'}
+                {deepAnalysis && ' - Comprehensive Analysis'}
+              </p>
             </div>
           </div>
 
-          {!analysis && (
-            <button
-              onClick={handleAnalyze}
-              disabled={loading}
-              className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                loading
-                  ? 'bg-gray-300 text-gray-600 cursor-not-allowed'
-                  : 'bg-blue-600 text-white hover:bg-blue-700'
-              }`}
-            >
-              {loading ? 'Analyzing...' : 'Analyze with AI'}
-            </button>
-          )}
+          <div className="flex items-center gap-2">
+            {/* Deep Analysis button - only show if we have quick analysis and not loading */}
+            {quickAnalysis && !deepAnalysis && !isLoading && (
+              <button
+                onClick={handleDeepAnalysis}
+                className="px-4 py-2 rounded-lg font-medium bg-blue-600 text-white hover:bg-blue-700 transition-colors"
+              >
+                Get Deep Analysis
+              </button>
+            )}
 
-          {analysis && (
-            <button
-              onClick={() => setExpanded(!expanded)}
-              className="px-4 py-2 rounded-lg font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors"
-            >
-              {expanded ? 'Collapse' : 'Expand'} Analysis
-            </button>
-          )}
+            {/* Expand/Collapse button */}
+            {currentAnalysis && !isLoading && (
+              <button
+                onClick={() => setExpanded(!expanded)}
+                className="px-4 py-2 rounded-lg font-medium bg-gray-200 text-gray-700 hover:bg-gray-300 transition-colors"
+              >
+                {expanded ? 'Collapse' : 'Expand'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       {/* Content */}
       <div className="px-6 py-4">
         {/* Loading state */}
-        {loading && (
+        {isLoading && (
           <div className="flex items-center gap-3 py-8">
             <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
             <div>
-              <p className="text-gray-900 font-medium">Analyzing citation risk...</p>
-              <p className="text-sm text-gray-600">This may take 10-30 seconds</p>
+              <p className="text-gray-900 font-medium">
+                {loadingQuick ? 'Running quick analysis...' : 'Running deep analysis...'}
+              </p>
+              <p className="text-sm text-gray-600">
+                {loadingQuick ? 'This will take 2-5 seconds' : 'This may take 10-30 seconds'}
+              </p>
             </div>
           </div>
         )}
 
         {/* Error state */}
-        {error && !loading && (
+        {error && !isLoading && (
           <div className="bg-red-50 border border-red-200 rounded-lg p-4">
             <p className="text-red-800 font-medium">Error</p>
             <p className="text-sm text-red-700 mt-1">{error}</p>
             <button
-              onClick={handleAnalyze}
+              onClick={handleDeepAnalysis}
               className="mt-3 text-sm text-red-700 hover:text-red-900 underline"
             >
               Try again
@@ -126,41 +165,42 @@ export const AIRiskAnalysis: React.FC<AIRiskAnalysisProps> = ({
         )}
 
         {/* Analysis result */}
-        {analysis && !loading && expanded && (
+        {currentAnalysis && !isLoading && expanded && (
           <div className="prose prose-sm max-w-none">
             <div className="whitespace-pre-wrap text-gray-800 leading-relaxed">
-              {analysis}
+              {currentAnalysis}
             </div>
 
             <div className="mt-6 pt-4 border-t border-gray-200 text-xs text-gray-500">
               <p>
-                This analysis was generated by Claude Sonnet 4.5 based on the opinion text
+                This analysis was generated by {model} based on the opinion text
                 and negative citations. It should be used as a research aid and verified
                 independently.
               </p>
+              {quickAnalysis && !deepAnalysis && (
+                <p className="mt-2 text-blue-600">
+                  This is a quick preview. Click "Get Deep Analysis" for comprehensive insights.
+                </p>
+              )}
             </div>
           </div>
         )}
 
         {/* Collapsed state */}
-        {analysis && !loading && !expanded && (
+        {currentAnalysis && !isLoading && !expanded && (
           <div className="text-sm text-gray-600">
-            <p>AI analysis available. Click "Expand Analysis" to view.</p>
+            <p>
+              {deepAnalysis ? 'Comprehensive' : 'Quick'} AI analysis available. Click "Expand" to view.
+            </p>
           </div>
         )}
 
-        {/* Initial state (no analysis yet) */}
-        {!analysis && !loading && !error && (
+        {/* Initial loading state (no analysis yet, but loading quick analysis) */}
+        {!currentAnalysis && isLoading && !error && (
           <div className="text-sm text-gray-600">
             <p className="mb-3">
-              Get an AI-powered analysis of why <strong>{caseName}</strong> is at citation risk.
+              Generating quick AI analysis of why <strong>{caseName}</strong> is at citation risk...
             </p>
-            <ul className="list-disc list-inside space-y-1 text-gray-600">
-              <li>Overview of the risk and what holdings are challenged</li>
-              <li>Impact on legal theories and precedential value</li>
-              <li>Connection to cases that cite it negatively</li>
-              <li>Practical implications for legal professionals</li>
-            </ul>
           </div>
         )}
       </div>

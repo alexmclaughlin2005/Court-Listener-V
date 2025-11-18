@@ -438,8 +438,12 @@ export const aiAnalysisAPI = {
    *
    * Only available for cases with negative citation risk.
    * Requires ANTHROPIC_API_KEY to be configured on the backend.
+   *
+   * @param opinionId - The opinion to analyze
+   * @param quick - If true, uses Claude 3.5 Haiku for fast analysis (~2-5s).
+   *                If false, uses Claude Sonnet 4.5 for comprehensive analysis (~10-30s).
    */
-  analyzeRisk(opinionId: number): Promise<{
+  analyzeRisk(opinionId: number, quick: boolean = false): Promise<{
     opinion_id: number;
     case_name: string;
     risk_summary: {
@@ -458,7 +462,8 @@ export const aiAnalysisAPI = {
       output_tokens: number;
     };
   }> {
-    return apiClient.post(`/api/v1/ai-analysis/${opinionId}`);
+    const params = quick ? '?quick=true' : '';
+    return apiClient.post(`/api/v1/ai-analysis/${opinionId}${params}`);
   },
 
   /**

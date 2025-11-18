@@ -65,18 +65,30 @@ class AIRiskAnalyzer:
             opinion_text = opinion_text[:max_opinion_chars] + "\n\n[Text truncated for length]"
 
         try:
+            # Select model based on analysis type
+            if use_quick_analysis:
+                model = "claude-3-5-haiku-20241022"
+                model_name = "claude-3.5-haiku"
+                # Use shorter prompt and fewer tokens for quick analysis
+                if max_tokens > 1000:
+                    max_tokens = 1000
+            else:
+                model = "claude-sonnet-4-5-20250929"
+                model_name = "claude-sonnet-4.5"
+
             # Build the prompt
             prompt = self._build_analysis_prompt(
                 opinion_text=opinion_text,
                 case_name=case_name,
                 risk_summary=risk_summary,
-                citing_cases=citing_cases
+                citing_cases=citing_cases,
+                quick_analysis=use_quick_analysis
             )
 
             # Call Claude API
-            logger.info(f"Requesting AI analysis for case: {case_name}")
+            logger.info(f"Requesting {model_name} analysis for case: {case_name}")
             message = self.client.messages.create(
-                model="claude-sonnet-4-5-20250929",
+                model=model,
                 max_tokens=max_tokens,
                 messages=[{
                     "role": "user",
@@ -89,7 +101,7 @@ class AIRiskAnalyzer:
 
             return {
                 "analysis": analysis_text,
-                "model": "claude-sonnet-4.5",
+                "model": model_name,
                 "usage": {
                     "input_tokens": message.usage.input_tokens,
                     "output_tokens": message.usage.output_tokens
@@ -114,7 +126,8 @@ class AIRiskAnalyzer:
         opinion_text: str,
         case_name: str,
         risk_summary: Dict,
-        citing_cases: List[Dict]
+        citing_cases: List[Dict],
+        quick_analysis: bool = False
     ) -> str:
         """Build the prompt for Claude"""
 
@@ -135,7 +148,28 @@ class AIRiskAnalyzer:
         if not citing_cases_text:
             citing_cases_text = "\nNone provided"
 
-        prompt = f"""You are a legal research assistant analyzing citation risks for case law. You have been provided with a legal opinion that has been flagged as having citation risk.
+        if quick_analysis:
+            # Shorter prompt for Haiku - focus on quick summary
+            prompt = f"""You are a legal research assistant. Analyze this case that has been flagged with citation risk.
+
+**Case:** {case_name}
+**Risk:** {risk_type} ({severity}, {int(confidence * 100)}% confidence, {negative_count} negative citations)
+**Citing Cases:**{citing_cases_text}
+
+**Opinion Text:**
+{opinion_text}
+
+---
+
+Provide a brief analysis (2-3 paragraphs):
+1. Why is this case at risk? What holdings are challenged?
+2. What legal theories or doctrines might be affected?
+3. Key practical implications for legal professionals.
+
+Keep it concise and accessible."""
+        else:
+            # Full comprehensive prompt for Sonnet 4.5
+            prompt = f"""You are a legal research assistant analyzing citation risks for case law. You have been provided with a legal opinion that has been flagged as having citation risk.
 
 **Case Being Analyzed:**
 {case_name}

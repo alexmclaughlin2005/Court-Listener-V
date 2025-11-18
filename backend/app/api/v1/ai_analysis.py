@@ -15,6 +15,7 @@ router = APIRouter()
 @router.post("/{opinion_id}")
 async def analyze_opinion_risk(
     opinion_id: int,
+    quick: bool = False,
     db: Session = Depends(get_db)
 ):
     """
@@ -25,6 +26,11 @@ async def analyze_opinion_risk(
     - What legal theories might be impacted
     - The connection between citing and cited cases
     - Practical implications for legal professionals
+
+    Args:
+        opinion_id: The opinion to analyze
+        quick: If True, uses Claude 3.5 Haiku for fast analysis (~2-5s).
+               If False, uses Claude Sonnet 4.5 for comprehensive analysis (~10-30s).
 
     Requires ANTHROPIC_API_KEY environment variable to be set.
     """
@@ -125,7 +131,8 @@ async def analyze_opinion_risk(
         case_name=case_name,
         risk_summary=risk_summary_dict,
         citing_cases=citing_cases,
-        max_tokens=2000
+        max_tokens=2000 if not quick else 1000,
+        use_quick_analysis=quick
     )
 
     if not result:
