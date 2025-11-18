@@ -223,44 +223,52 @@ Times Cited by Other Cases: {case_metadata['citation_count']}
 === YOUR TASK ===
 Analyze this opinion's intrinsic precedential value by examining the opinion text itself:
 
-1. **Procedural Outcome**: What happened? Look for:
-   - "AFFIRMED" = lower court decision upheld → holding is binding precedent
-   - "REVERSED" = lower court overturned → this court's reasoning is precedent
-   - "REMANDED" = sent back for further proceedings → holdings on decided issues are precedent
-   - "DISMISSED" = case thrown out → usually no precedential value
-   - "VACATED" = prior decision nullified → limited or no precedential value
+1. **Was THIS Opinion Reversed or Overruled?**: CRITICAL - Check if THIS opinion states it has been reversed/overruled by a higher court:
+   - Search for: "this opinion", "our decision", "our holding" + "reversed", "overruled", "vacated"
+   - If THIS opinion was reversed/overruled → OVERRULED assessment
+   - If THIS opinion is doing the reversing → Continue analysis (it may still be GOOD)
 
-2. **This Opinion's Effect on Prior Law**: Does this opinion explicitly overrule or supersede earlier cases?
+2. **Procedural Outcome of THIS Case**: What did this court decide?
+   - "AFFIRMED" = This court agreed with lower court → GOOD (clear endorsement)
+   - "REVERSED" = This court overturned lower court → GOOD (this court's reasoning is binding)
+   - "REVERSED AND REMANDED" = Overturned and sent back → GOOD (clear legal holdings on why reversal occurred)
+   - "DISMISSED" = Case thrown out on procedural grounds → QUESTIONABLE (may lack substantive holdings)
+   - "VACATED" = Prior decision nullified → QUESTIONABLE (limited precedential value)
+
+   IMPORTANT: If this opinion REVERSED a lower court, that means THIS opinion's reasoning is the binding precedent, not the lower court's decision.
+
+3. **This Opinion's Effect on Prior Law**: Did this opinion overrule OTHER prior precedent?
    - Search for: "overruled", "overrule", "no longer good law", "superseded by statute", "abrogated"
-   - If found: Assessment should be GOOD (this opinion did the overruling, so it's current law)
+   - If this opinion OVERRULED older cases → GOOD (this is the current law replacing old law)
 
-3. **Holding vs. Dicta**:
+4. **Holding vs. Dicta**:
    - Holding = rule necessary to decide the case (binding precedent)
    - Dicta = commentary not necessary to decision (persuasive only)
    - Is the main legal principle part of the actual holding?
 
-4. **Quality of Reasoning**:
+5. **Quality of Reasoning**:
    - Is the legal analysis thorough and well-reasoned?
    - Does it cite relevant precedent and statutes?
    - Is the reasoning clear or convoluted?
 
-5. **Court Authority**:
+6. **Court Authority**:
    - Higher courts = stronger precedent
    - En banc decisions > panel decisions
    - Consider: {case_metadata['court_name']}
 
-6. **Age & Citation Count**:
+7. **Age & Citation Count**:
    - Age: {case_metadata['date_filed'] or 'Unknown'}
    - Cited {case_metadata['citation_count']} times
    - Older cases with low citation counts may have limited relevance
 
 CRITICAL RULES:
-- DO NOT consider how later cases treated this opinion - analyze ONLY this opinion itself
-- If this opinion REVERSED or OVERRULED prior cases, that's GOOD (it's the current law)
-- If this opinion was AFFIRMED or has a clear holding, that's typically GOOD
-- Only mark OVERRULED if this opinion itself states it's been superseded/abrogated
-- Only mark QUESTIONABLE if the reasoning is weak, dicta-heavy, or procedurally problematic
-- Mark UNCERTAIN only if you cannot determine the precedential value from the text
+- DO NOT confuse the outcome: If THIS opinion says "REVERSED AND REMANDED", that means THIS COURT is creating binding precedent by overturning the lower court
+- A "REVERSED" decision means THIS opinion's reasoning is the law, not the lower court's
+- Only mark OVERRULED if THIS opinion states that IT (this opinion) has been reversed/overruled by a higher court
+- If this opinion REVERSED or OVERRULED OTHER prior cases → GOOD (this is current law)
+- If this opinion was AFFIRMED → GOOD (clear precedent)
+- Only mark QUESTIONABLE if the reasoning is weak, dicta-heavy, dismissed on procedural grounds, or vacated
+- Mark UNCERTAIN only if you cannot determine precedential value from the text
 
 Return ONLY valid JSON (no explanatory text):
 
