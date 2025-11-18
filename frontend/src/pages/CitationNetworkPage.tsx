@@ -272,10 +272,60 @@ export default function CitationNetworkPage() {
     }
   }, []) // NO DEPENDENCIES - stable reference prevents infinite loop
 
-  // TEMPORARILY DISABLED - Initialize Cytoscape when container and elements are ready
+  // Initialize Cytoscape when container and elements are ready
   useEffect(() => {
-    // Cytoscape initialization disabled - do nothing
-  }, [])
+    if (!containerReady || !cytoscapeElements.length || !cyRef.current === undefined) {
+      console.log('Waiting for conditions:', {
+        containerReady,
+        elementsCount: cytoscapeElements.length,
+        cyRefExists: cyRef.current !== undefined
+      })
+      return
+    }
+
+    console.log('Initializing Cytoscape with', cytoscapeElements.length, 'elements')
+
+    const container = document.querySelector('[data-cytoscape-container]')
+    if (!container) {
+      console.error('Cytoscape container not found')
+      return
+    }
+
+    try {
+      // Destroy existing instance if any
+      if (cyRef.current) {
+        console.log('Destroying existing Cytoscape instance')
+        cyRef.current.destroy()
+      }
+
+      // Create new instance
+      const cy = cytoscape({
+        container: container as HTMLElement,
+        elements: cytoscapeElements,
+        style: getCytoscapeStylesheet(),
+        layout: {
+          name: 'cose',
+          animate: true,
+          animationDuration: 1000,
+          nodeRepulsion: 8000,
+          idealEdgeLength: 100,
+          edgeElasticity: 100,
+        } as any,
+        userZoomingEnabled: true,
+        userPanningEnabled: true,
+        boxSelectionEnabled: true,
+      })
+
+      // Add event listeners
+      cy.on('tap', 'node', handleNodeClick)
+
+      cyRef.current = cy
+
+      console.log('Cytoscape initialized successfully')
+    } catch (error) {
+      console.error('Failed to initialize Cytoscape:', error)
+    }
+  }, [containerReady, cytoscapeElements, handleNodeClick])
 
   if (loading) {
     return (
