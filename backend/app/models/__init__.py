@@ -9,6 +9,12 @@ from app.models.opinions_cited import OpinionsCited
 from app.models.parenthetical import Parenthetical
 from app.models.citation_treatment import CitationTreatment, TreatmentType, Severity
 from app.models.risk_analysis_cache import RiskAnalysisCache
+from app.models.citation_quality import (
+    CitationQualityAnalysis,
+    CitationAnalysisTree,
+    QualityAssessment,
+    AnalysisStatus,
+)
 
 __all__ = [
     "Court",
@@ -21,5 +27,9 @@ __all__ = [
     "TreatmentType",
     "Severity",
     "RiskAnalysisCache",
+    "CitationQualityAnalysis",
+    "CitationAnalysisTree",
+    "QualityAssessment",
+    "AnalysisStatus",
 ]
 
