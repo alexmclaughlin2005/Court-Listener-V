@@ -187,6 +187,17 @@ const apiClient = {
     }
     return response.json();
   },
+
+  async delete<T>(endpoint: string): Promise<T> {
+    const response = await fetch(`${API_URL}${endpoint}`, {
+      method: 'DELETE',
+    });
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: response.statusText }));
+      throw new Error(error.detail || `API Error: ${response.statusText}`);
+    }
+    return response.json();
+  },
 };
 
 // Search API
@@ -434,95 +445,37 @@ export const treatmentAPI = {
 // AI Analysis API
 export const aiAnalysisAPI = {
   /**
-   * Get AI-powered analysis of citation risk for an opinion (streaming)
+   * Get AI-powered analysis of citation risk for an opinion
    *
    * Only available for cases with negative citation risk.
    * Requires ANTHROPIC_API_KEY to be configured on the backend.
    *
    * @param opinionId - The opinion to analyze
-   * @param quick - If true, uses Claude 3.5 Haiku for fast analysis (~2-5s).
+   * @param quick - If true, uses Claude Haiku 4.5 for fast analysis (~2-5s).
    *                If false, uses Claude Sonnet 4.5 for comprehensive analysis (~10-30s).
-   * @param onChunk - Callback function called for each streamed chunk
-   * @param onComplete - Callback function called when streaming completes
-   * @param onError - Callback function called if an error occurs
    */
-  async analyzeRiskStreaming(
-    opinionId: number,
-    quick: boolean = false,
-    onChunk: (chunk: string) => void,
-    onComplete: (metadata: { model: string; usage: { input_tokens: number; output_tokens: number } }) => void,
-    onError: (error: string) => void
-  ): Promise<void> {
+  analyzeRisk(opinionId: number, quick: boolean = false): Promise<{
+    opinion_id: number;
+    case_name: string;
+    risk_summary: {
+      treatment_type: string;
+      severity: string;
+      confidence: number;
+      negative_count: number;
+      positive_count: number;
+      neutral_count: number;
+    };
+    citing_cases_count: number;
+    analysis: string | null;
+    model: string | null;
+    usage: {
+      input_tokens: number;
+      output_tokens: number;
+    } | null;
+    error: string | null;
+  }> {
     const params = quick ? '?quick=true' : '';
-    const url = `${API_URL}/api/v1/ai-analysis/${opinionId}${params}`;
-
-    try {
-      const response = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-
-      if (!reader) {
-        throw new Error('No response body');
-      }
-
-      let buffer = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-
-        if (done) {
-          console.log('[SSE] Stream done');
-          break;
-        }
-
-        console.log('[SSE] Received chunk, size:', value.length, 'bytes');
-
-        // Decode chunk and add to buffer
-        buffer += decoder.decode(value, { stream: true });
-
-        // Split by lines but keep incomplete lines in buffer
-        const lines = buffer.split('\n');
-        buffer = lines.pop() || ''; // Keep last incomplete line in buffer
-
-        console.log('[SSE] Parsed', lines.length, 'lines from buffer');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-
-              if (data.type === 'text') {
-                console.log('[SSE] Text chunk:', data.content.substring(0, 20));
-                onChunk(data.content);
-              } else if (data.type === 'metadata') {
-                onComplete({ model: data.model, usage: data.usage });
-              } else if (data.type === 'error') {
-                onError(data.error);
-              } else if (data.type === 'done') {
-                // Stream complete
-                console.log('[SSE] Done signal received');
-                return;
-              }
-            } catch (e) {
-              // Skip malformed JSON
-              console.warn('Failed to parse SSE data:', line);
-            }
-          }
-        }
-      }
-    } catch (error) {
-      onError(error instanceof Error ? error.message : 'Failed to analyze');
-    }
+    return apiClient.post(`/api/v1/ai-analysis/${opinionId}${params}`);
   },
 
   /**
@@ -536,5 +489,166 @@ export const aiAnalysisAPI = {
     return apiClient.get('/api/v1/ai-analysis/status');
   },
 };
+
+// Citation Quality API
+export const citationQualityAPI = {
+  /**
+   * Analyze citation quality tree for an opinion
+   *
+   * Performs recursive citation analysis up to specified depth:
+   * - Fetches all cited opinions (breadth-first traversal)
+   * - Analyzes each citation with AI (Claude Haiku 4.5)
+   * - Calculates overall risk assessment
+   * - Saves complete tree to database
+   *
+   * @param opinionId - Root opinion to analyze
+   * @param depth - Analysis depth (1-5 levels, default 4)
+   * @param forceRefresh - If true, re-analyze even if cached
+   */
+  analyzeTree(opinionId: number, params?: {
+    depth?: number;
+    force_refresh?: boolean;
+  }): Promise<{
+    success: boolean;
+    opinion_id: number;
+    result: CitationQualityTree;
+  }> {
+    const queryParams = new URLSearchParams();
+    if (params?.depth) queryParams.append('depth', params.depth.toString());
+    if (params?.force_refresh) queryParams.append('force_refresh', 'true');
+    return apiClient.post(`/api/v1/citation-quality/analyze/${opinionId}?${queryParams}`);
+  },
+
+  /**
+   * Get cached citation analysis tree
+   *
+   * @param opinionId - Opinion ID
+   * @param depth - Optional depth filter
+   */
+  getTree(opinionId: number, depth?: number): Promise<CitationQualityTree> {
+    const queryParams = new URLSearchParams();
+    if (depth) queryParams.append('depth', depth.toString());
+    return apiClient.get(`/api/v1/citation-quality/tree/${opinionId}?${queryParams}`);
+  },
+
+  /**
+   * Get individual citation quality analysis
+   *
+   * @param opinionId - Opinion ID
+   */
+  getAnalysis(opinionId: number): Promise<CitationQualityAnalysis> {
+    return apiClient.get(`/api/v1/citation-quality/analysis/${opinionId}`);
+  },
+
+  /**
+   * Get citation quality analysis statistics
+   */
+  getStats(): Promise<{
+    total_analyses: number;
+    by_quality: Record<string, number>;
+    average_risk_score: number;
+    total_trees_analyzed: number;
+    average_execution_time_seconds: number;
+    cache_hit_rate: number;
+  }> {
+    return apiClient.get('/api/v1/citation-quality/stats');
+  },
+
+  /**
+   * Get high-risk opinions
+   *
+   * @param limit - Maximum number of results (default 20, max 100)
+   */
+  getHighRiskOpinions(limit: number = 20): Promise<{
+    count: number;
+    high_risk_opinions: CitationQualityAnalysis[];
+  }> {
+    const queryParams = new URLSearchParams();
+    queryParams.append('limit', limit.toString());
+    return apiClient.get(`/api/v1/citation-quality/high-risk?${queryParams}`);
+  },
+
+  /**
+   * Delete cached citation analysis tree(s)
+   *
+   * @param opinionId - Opinion ID
+   */
+  deleteTree(opinionId: number): Promise<{
+    success: boolean;
+    deleted_count: number;
+    message: string;
+  }> {
+    return apiClient.delete(`/api/v1/citation-quality/tree/${opinionId}`);
+  },
+
+  /**
+   * Check citation quality analysis service status
+   */
+  getStatus(): Promise<{
+    ai_available: boolean;
+    ai_model: string | null;
+    courtlistener_api_configured: boolean;
+    service_status: 'operational' | 'degraded';
+    message: string;
+  }> {
+    return apiClient.get('/api/v1/citation-quality/status');
+  },
+};
+
+// Type definitions for Citation Quality
+export interface CitationQualityAnalysis {
+  id: number;
+  cited_opinion_id: number;
+  quality_assessment: 'GOOD' | 'QUESTIONABLE' | 'OVERRULED' | 'SUPERSEDED' | 'UNCERTAIN';
+  confidence: number;
+  ai_summary: string;
+  ai_model: string;
+  is_overruled: boolean;
+  is_questioned: boolean;
+  is_criticized: boolean;
+  risk_score: number;
+  analysis_version: number;
+  analyzed_at: string;
+  last_updated: string;
+}
+
+export interface CitationQualityTree {
+  id: number;
+  root_opinion_id: number;
+  max_depth: number;
+  current_depth: number;
+  total_citations_analyzed: number;
+  good_count: number;
+  questionable_count: number;
+  overruled_count: number;
+  superseded_count: number;
+  uncertain_count: number;
+  overall_risk_score: number;
+  overall_risk_level: 'LOW' | 'MEDIUM' | 'HIGH';
+  risk_factors: string[];
+  tree_data: {
+    root_opinion_id: number;
+    citations_by_depth: Record<number, Array<{
+      opinion_id: number;
+      quality_assessment: string;
+      risk_score: number;
+      summary: string;
+    }>>;
+  };
+  high_risk_citations: Array<{
+    opinion_id: number;
+    depth: number;
+    quality_assessment: string;
+    risk_score: number;
+    summary: string;
+  }>;
+  analysis_started_at: string;
+  analysis_completed_at: string | null;
+  execution_time_seconds: number;
+  cache_hits: number;
+  cache_misses: number;
+  status: 'in_progress' | 'completed' | 'failed';
+  error_message: string | null;
+}
 
 export default apiClient;

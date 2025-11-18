@@ -13,6 +13,7 @@ import { Link } from 'react-router-dom';
 import { searchAPI, citationAPI, treatmentAPI, CaseDetail, CitationNode, TreatmentSummary } from '../lib/api';
 import TreatmentBadge from './TreatmentBadge';
 import AIRiskAnalysis from './AIRiskAnalysis';
+import CitationQualityAnalysis from './CitationQualityAnalysis';
 
 interface CaseDetailFlyoutProps {
   clusterId: number;
@@ -33,7 +34,7 @@ export const CaseDetailFlyout: React.FC<CaseDetailFlyoutProps> = ({
   const [outboundCitations, setOutboundCitations] = useState<CitationNode[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [activeTab, setActiveTab] = useState<'opinion' | 'risk' | 'citations'>('opinion');
+  const [activeTab, setActiveTab] = useState<'opinion' | 'risk' | 'quality' | 'citations'>('opinion');
   const [syncingCitations, setSyncingCitations] = useState(false);
   const [syncMessage, setSyncMessage] = useState<string | null>(null);
 
@@ -304,6 +305,16 @@ export const CaseDetailFlyout: React.FC<CaseDetailFlyoutProps> = ({
                     )}
                   </button>
                   <button
+                    onClick={() => setActiveTab('quality')}
+                    className={`px-4 py-3 font-medium text-sm border-b-2 transition ${
+                      activeTab === 'quality'
+                        ? 'border-blue-600 text-blue-600'
+                        : 'border-transparent text-gray-600 hover:text-gray-900'
+                    }`}
+                  >
+                    Citation Quality
+                  </button>
+                  <button
                     onClick={() => setActiveTab('citations')}
                     className={`px-4 py-3 font-medium text-sm border-b-2 transition ${
                       activeTab === 'citations'
@@ -461,6 +472,17 @@ export const CaseDetailFlyout: React.FC<CaseDetailFlyoutProps> = ({
                         )}
                       </div>
                     )}
+                  </div>
+                )}
+
+                {/* Citation Quality Tab */}
+                {activeTab === 'quality' && (
+                  <div>
+                    <CitationQualityAnalysis
+                      opinionId={opinionId}
+                      caseName={caseDetail?.case_name || `Opinion ${opinionId}`}
+                      className="mb-0"
+                    />
                   </div>
                 )}
 
