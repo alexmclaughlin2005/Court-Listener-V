@@ -377,8 +377,13 @@ export default function CitationNetworkPage() {
                 <span className="text-sm font-medium text-gray-700">Citation Risk:</span>
                 <TreatmentBadge
                   treatment={{
-                    type: deepAnalysis.risk_assessment.level || 'UNKNOWN',
-                    severity: (deepAnalysis.risk_assessment.level || 'UNKNOWN') as any,
+                    type: 'UNKNOWN',
+                    severity: (
+                      deepAnalysis.risk_assessment.level === 'HIGH' ? 'NEGATIVE' :
+                      deepAnalysis.risk_assessment.level === 'MEDIUM' ? 'NEUTRAL' :
+                      deepAnalysis.risk_assessment.level === 'LOW' ? 'POSITIVE' :
+                      'UNKNOWN'
+                    ) as any,
                     confidence: (deepAnalysis.risk_assessment.score || 0) / 100,
                   }}
                   size="md"
