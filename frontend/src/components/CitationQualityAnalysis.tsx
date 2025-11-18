@@ -388,7 +388,7 @@ export const CitationQualityAnalysis: React.FC<CitationQualityAnalysisProps> = (
             {/* Citations by Depth */}
             <div className="space-y-4">
               <h4 className="text-lg font-semibold text-gray-900">Citations by Depth</h4>
-              {Object.entries(tree.tree_data.citations_by_depth)
+              {tree.tree_data?.citations_by_depth && Object.entries(tree.tree_data.citations_by_depth)
                 .sort(([a], [b]) => Number(a) - Number(b))
                 .map(([depth, citations]) => {
                   const depthNum = Number(depth);
