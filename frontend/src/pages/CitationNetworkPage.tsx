@@ -190,6 +190,7 @@ export default function CitationNetworkPage() {
       nodeIds.add(nodeIdStr)
 
       elements.push({
+        group: 'nodes',
         data: {
           id: nodeIdStr,
           label: (node.case_name_short || node.case_name || 'Unknown Case').substring(0, 50),
@@ -198,7 +199,7 @@ export default function CitationNetworkPage() {
           clusterId: node.cluster_id || 0,
           opinionId: node.opinion_id,
         },
-        position: { x: 0, y: 0 }, // Initial position, will be set by layout
+        position: { x: 0, y: 0 },
       })
     })
 
@@ -218,6 +219,7 @@ export default function CitationNetworkPage() {
         // Only add edge if both nodes exist
         if (nodeIds.has(sourceStr) && nodeIds.has(targetStr)) {
           elements.push({
+            group: 'edges',
             data: {
               id: `edge-${index}`,
               source: sourceStr,
@@ -232,7 +234,8 @@ export default function CitationNetworkPage() {
       })
     }
 
-    console.log(`Created ${nodeIds.size} nodes and ${elements.filter(e => e.data.id?.toString().startsWith('edge-')).length} valid edges`)
+    console.log(`Created ${nodeIds.size} nodes and ${elements.filter(e => e.group === 'edges').length} valid edges`)
+    console.log('Final elements array:', JSON.stringify(elements, null, 2))
 
     return elements
   }, [networkData, opinionId])
@@ -398,7 +401,7 @@ export default function CitationNetworkPage() {
           {!loading && networkData && networkData.nodes && networkData.nodes.length > 0 && cytoscapeElements.length > 0 ? (
             <CytoscapeComponent
               key={`cytoscape-${opinionId}-${cytoscapeElements.length}`}
-              elements={CytoscapeComponent.normalizeElements(cytoscapeElements)}
+              elements={cytoscapeElements}
               style={{ width: '100%', height: '100%' }}
               stylesheet={getCytoscapeStylesheet()}
               layout={{
