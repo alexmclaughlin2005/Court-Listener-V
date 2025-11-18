@@ -129,6 +129,10 @@ class AIRiskAnalyzer:
             if case.get('excerpt'):
                 citing_cases_text += f"\n  Excerpt: \"{case['excerpt']}\""
 
+        # Set default if no citing cases
+        if not citing_cases_text:
+            citing_cases_text = "\nNone provided"
+
         prompt = f"""You are a legal research assistant analyzing citation risks for case law. You have been provided with a legal opinion that has been flagged as having citation risk.
 
 **Case Being Analyzed:**
@@ -140,7 +144,7 @@ class AIRiskAnalyzer:
 - Confidence: {int(confidence * 100)}%
 - Number of negative citations: {negative_count}
 
-**Cases Citing This Opinion Negatively:**{citing_cases_text or "\nNone provided"}
+**Cases Citing This Opinion Negatively:**{citing_cases_text}
 
 **Full Opinion Text:**
 {opinion_text}
