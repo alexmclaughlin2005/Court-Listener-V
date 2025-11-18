@@ -395,9 +395,10 @@ export default function CitationNetworkPage() {
 
         {/* Network Graph */}
         <div className="bg-white rounded-lg shadow" style={{ height: '600px' }}>
-          {networkData && networkData.nodes && networkData.nodes.length > 0 && cytoscapeElements.length > 0 ? (
+          {!loading && networkData && networkData.nodes && networkData.nodes.length > 0 && cytoscapeElements.length > 0 ? (
             <CytoscapeComponent
-              elements={cytoscapeElements}
+              key={`cytoscape-${opinionId}-${cytoscapeElements.length}`}
+              elements={CytoscapeComponent.normalizeElements(cytoscapeElements)}
               style={{ width: '100%', height: '100%' }}
               stylesheet={getCytoscapeStylesheet()}
               layout={{
